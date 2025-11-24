@@ -152,9 +152,12 @@ export function MainContent({ onNavigate, proposals, takenHearings, onEditPropos
                     exit={{ x: direction > 0 ? -100 : 100, opacity: 0 }}
                     transition={{ duration: 0.3, ease: "easeInOut" }}
                   >
-                    <h3 className="text-gray-800 mb-1 font-[Poppins]">
-                      {announcements[currentAnnouncementIndex].title}
-                    </h3>
+<h3 
+  className="text-gray-800 mb-1 font-[Poppins] cursor-pointer hover:underline"
+  onClick={() => onNavigate(`Pengumuman:${announcements[currentAnnouncementIndex].id}`)}
+>
+  {announcements[currentAnnouncementIndex].title}
+</h3>
 
                     <p className="text-xs text-gray-400 font-[Roboto]">{announcements[currentAnnouncementIndex].date}</p>
                   </motion.div>

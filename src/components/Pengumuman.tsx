@@ -1,5 +1,5 @@
 import { Megaphone, Calendar, AlertCircle, Info, CheckCircle, Clock, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "./ui/badge";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
@@ -16,11 +16,25 @@ interface Announcement {
 
 interface PengumumanProps {
   announcements: Announcement[];
+  selectedId?: number | null;
+  onClearSelected?: () => void;
 }
 
-export function Pengumuman({ announcements }: PengumumanProps) {
+export function Pengumuman({ announcements, selectedId, onClearSelected }: PengumumanProps) {
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("Semua");
+
+  // Auto-open announcement when selectedId is provided
+  useEffect(() => {
+    if (selectedId) {
+      const found = announcements.find(a => a.id === selectedId);
+      if (found) {
+        setSelectedAnnouncement(found);
+      }
+      // Clear selected ID after opening
+      if (onClearSelected) onClearSelected();
+    }
+  }, [selectedId, announcements, onClearSelected]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {

@@ -58,6 +58,7 @@ interface Proposal {
 }
 
 export default function App() {
+  const [selectedAnnouncementId, setSelectedAnnouncementId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState("Beranda");
   const [userRole, setUserRole] = useState<"Mahasiswa" | "Dosen">("Mahasiswa");
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
@@ -380,19 +381,32 @@ export default function App() {
     setCurrentPage("Beranda"); // Reset to homepage when switching roles
   };
 
+  const handleNavigate = (page: string) => {
+  // Format: Pengumuman:ID
+  if (page.startsWith("Pengumuman:")) {
+    const id = Number(page.split(":")[1]);
+    setSelectedAnnouncementId(id);
+    setCurrentPage("Pengumuman");
+    return;
+  }
+
+  // Default navigation
+  setCurrentPage(page);
+};
+
   return (
     <div className="min-h-screen bg-[#f5f5f5] flex flex-col pt-[57px]">
       <Header userRole={userRole} onRoleSwitch={handleRoleSwitch} />
       <div className="flex flex-1 relative">
         <Sidebar 
           currentPage={currentPage} 
-          onNavigate={setCurrentPage}
+          onNavigate={handleNavigate}
           userRole={userRole}
         />
         <div className="flex-1 ml-64">
           {currentPage === "Beranda" && userRole === "Mahasiswa" && (
             <MainContent 
-              onNavigate={setCurrentPage} 
+              onNavigate={handleNavigate} 
               proposals={proposals}
               takenHearings={takenHearings}
               onEditProposal={handleEditProposal}
@@ -470,7 +484,13 @@ export default function App() {
             />
           )}
           {currentPage === "Panduan" && <Panduan />}
-          {currentPage === "Pengumuman" && <Pengumuman announcements={announcements} />}
+          {currentPage === "Pengumuman" && (
+  <Pengumuman 
+    announcements={announcements}
+    selectedId={selectedAnnouncementId}
+    onClearSelected={() => setSelectedAnnouncementId(null)}
+  />
+)}
         </div>
       </div>
       <Toaster />
