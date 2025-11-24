@@ -15,6 +15,8 @@ import { MySidangDetail } from "./components/MySidangDetail";
 import { Panduan } from "./components/Panduan";
 import { Pengumuman } from "./components/Pengumuman";
 import { Toaster } from "./components/ui/sonner";
+import { ViewPenawaranTopikDosen } from "./components/ViewPenawaranTopikDosen";
+
 
 interface Topic {
   id: number;
@@ -431,8 +433,14 @@ export default function App() {
           {currentPage === "Penawaran Topik" && userRole === "Dosen" && (
             <PenawaranTopikDosen onNavigate={setCurrentPage} />
           )}
+{currentPage === "View Penawaran Topik Dosen" && userRole === "Dosen" && (
+  <ViewPenawaranTopikDosen 
+    onBack={() => setCurrentPage("Penawaran Topik")}
+    onTopicSelect={handleTopicSelect}
+  />
+)}
           {currentPage === "Topic Detail" && selectedTopic && (
-            <TopicDetail topic={selectedTopic} onBack={handleBackToPenawaran} />
+            <TopicDetail topic={selectedTopic} onBack={handleBackToPenawaran} userRole={userRole}/>
           )}
           {currentPage === "Tugas Akhir" && (
             <TugasAkhir 

@@ -481,7 +481,7 @@ export function PenawaranTopikDosen({ onNavigate }: PenawaranTopikDosenProps) {
             Panduan Penggunaan
           </button>
           <button
-            onClick={() => setViewMode("view")}
+  onClick={() => onNavigate("View Penawaran Topik Dosen")}
             className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-[Roboto] text-sm"
           >
             <Eye className="w-4 h-4" />
