@@ -16,6 +16,7 @@ import { Panduan } from "./components/Panduan";
 import { Pengumuman } from "./components/Pengumuman";
 import { Toaster } from "./components/ui/sonner";
 import { ViewPenawaranTopikDosen } from "./components/ViewPenawaranTopikDosen";
+import { CatatanBimbingan } from "./components/CatatanBimbingan";
 
 interface Topic {
   id: number;
@@ -59,7 +60,8 @@ interface Proposal {
 }
 
 export default function App() {
-  const [selectedAnnouncementId, setSelectedAnnouncementId] = useState<number | null>(null);
+  const [selectedAnnouncementId, setSelectedAnnouncementId] =
+    useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState("Beranda");
   const [userRole, setUserRole] = useState<"Mahasiswa" | "Dosen">("Mahasiswa");
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
@@ -67,7 +69,16 @@ export default function App() {
   const [editingProposal, setEditingProposal] = useState<Proposal | null>(null);
   const [takenHearings, setTakenHearings] = useState<TakenHearing[]>([]);
   const [selectedHearing, setSelectedHearing] = useState<Hearing | null>(null);
-  const [selectedTakenHearing, setSelectedTakenHearing] = useState<TakenHearing | null>(null);
+  const [selectedTakenHearing, setSelectedTakenHearing] =
+    useState<TakenHearing | null>(null);
+
+  const [guidanceContext, setGuidanceContext] = useState<{
+    stage: "proposal" | "final";
+    title: string;
+    status: string;
+    supervisor1: string;
+    supervisor2: string;
+  } | null>(null);
 
   // Announcements data
   const announcements: Announcement[] = [
@@ -242,7 +253,9 @@ export default function App() {
     };
 
     if (editingProposal) {
-      setProposals(proposals.map((p) => (p.id === editingProposal.id ? newProposal : p)));
+      setProposals(
+        proposals.map((p) => (p.id === editingProposal.id ? newProposal : p))
+      );
     } else {
       setProposals([...proposals, newProposal]);
     }
@@ -251,11 +264,44 @@ export default function App() {
     setCurrentPage("Tugas Akhir");
   };
 
+  // === Catatan Bimbingan handlers ===
+  const handleOpenProposalGuidance = () => {
+    const proposal = proposals.find((p) => p.stage === "proposal");
+    if (!proposal) return;
+
+    setGuidanceContext({
+      stage: "proposal",
+      title: proposal.title,
+      status: proposal.status,
+      supervisor1: proposal.supervisor1,
+      supervisor2: proposal.supervisor2,
+    });
+    setCurrentPage("Catatan Bimbingan");
+  };
+
+  const handleOpenFinalGuidance = () => {
+    const ta = proposals.find((p) => p.stage === "final");
+    if (!ta) return;
+
+    setGuidanceContext({
+      stage: "final",
+      title: ta.title,
+      status: ta.status || "Tugas Akhir - Dalam Pengerjaan",
+      supervisor1: ta.supervisor1,
+      supervisor2: ta.supervisor2,
+    });
+    setCurrentPage("Catatan Bimbingan");
+  };
+
+  const handleBackFromGuidance = () => {
+    setCurrentPage("Tugas Akhir");
+  };
+  // === END Catatan Bimbingan handlers ===
+
   const handleApproveAll = () => {
     setProposals(
       proposals.map((p) => {
         if (p.status === "Menunggu Persetujuan") {
-          // Bedakan antara proposal dan tugas akhir
           if (p.stage === "proposal") {
             return { ...p, status: "Siap Daftar Sidang" };
           }
@@ -268,9 +314,14 @@ export default function App() {
     );
   };
 
-  const handleUpdateProposal = (proposalId: number, updates: Partial<Proposal>) => {
+  const handleUpdateProposal = (
+    proposalId: number,
+    updates: Partial<Proposal>
+  ) => {
     setProposals(
-      proposals.map((p) => (p.id === proposalId ? { ...p, ...updates } : p))
+      proposals.map((p) =>
+        p.id === proposalId ? { ...p, ...updates } : p
+      )
     );
   };
 
@@ -337,48 +388,46 @@ export default function App() {
     setCurrentPage("Sidang");
   };
 
-const handleCompleteProposalDefense = (proposalId: number) => {
-  // Pindah dari tahap "proposal" ke tahap "final" DAN reset state approval
-  setProposals(
-    proposals.map((p) => {
-      if (p.id !== proposalId) return p;
+  const handleCompleteProposalDefense = (proposalId: number) => {
+    // Pindah dari tahap "proposal" ke tahap "final" DAN reset state approval
+    setProposals(
+      proposals.map((p) => {
+        if (p.id !== proposalId) return p;
 
-      return {
-        ...p,
-        stage: "final",
-        status: "Tugas Akhir - Dalam Pengerjaan",
+        return {
+          ...p,
+          stage: "final",
+          status: "Tugas Akhir - Dalam Pengerjaan",
+          supervisor1Approval: "pending",
+          supervisor2Approval: "pending",
+          adminApproval: "pending",
+          supervisor1ApprovalDate: undefined,
+          supervisor2ApprovalDate: undefined,
+          adminApprovalDate: undefined,
+          approvalDeadline: undefined,
+        };
+      })
+    );
 
-        // reset semua approval supaya Tugas Akhir tidak auto-approved
-        supervisor1Approval: "pending",
-        supervisor2Approval: "pending",
-        adminApproval: "pending",
-        supervisor1ApprovalDate: undefined,
-        supervisor2ApprovalDate: undefined,
-        adminApprovalDate: undefined,
-        approvalDeadline: undefined,
-      };
-    })
-  );
-
-  // Update status hearing proposal jadi "Sidang Selesai"
-  setTakenHearings(
-    takenHearings.map((h) =>
-      h.proposalId === proposalId && h.hearingType === "Proposal"
-        ? { ...h, status: "Sidang Selesai" as const }
-        : h
-    )
-  );
-};
+    // Update status hearing proposal jadi "Sidang Selesai"
+    setTakenHearings(
+      takenHearings.map((h) =>
+        h.proposalId === proposalId && h.hearingType === "Proposal"
+          ? { ...h, status: "Sidang Selesai" as const }
+          : h
+      )
+    );
+  };
 
   const handleCompleteFinalDefense = (proposalId: number) => {
-    // Tandai tugas akhir sebagai selesai
     setProposals((prev) =>
       prev.map((p) =>
-        p.id === proposalId ? { ...p, status: "Tugas Akhir Telah Selesai" } : p
+        p.id === proposalId
+          ? { ...p, status: "Tugas Akhir Telah Selesai" }
+          : p
       )
     );
 
-    // Update status hearing final jadi selesai
     setTakenHearings((prev) =>
       prev.map((h) =>
         h.proposalId === proposalId && h.hearingType === "Final"
@@ -388,7 +437,10 @@ const handleCompleteProposalDefense = (proposalId: number) => {
     );
   };
 
-  const handleUpdateHearingInfo = (hearingId: number, info: Partial<TakenHearing>) => {
+  const handleUpdateHearingInfo = (
+    hearingId: number,
+    info: Partial<TakenHearing>
+  ) => {
     setTakenHearings(
       takenHearings.map((h) => (h.id === hearingId ? { ...h, ...info } : h))
     );
@@ -398,11 +450,20 @@ const handleCompleteProposalDefense = (proposalId: number) => {
     }
   };
 
-  const handleFinishHearing = (hearingId: number, notes: string, deadline: string) => {
+  const handleFinishHearing = (
+    hearingId: number,
+    notes: string,
+    deadline: string
+  ) => {
     setTakenHearings(
       takenHearings.map((h) =>
         h.id === hearingId
-          ? { ...h, status: "Revisi" as const, revisionNotes: notes, revisionDeadline: deadline }
+          ? {
+              ...h,
+              status: "Revisi" as const,
+              revisionNotes: notes,
+              revisionDeadline: deadline,
+            }
           : h
       )
     );
@@ -417,8 +478,11 @@ const handleCompleteProposalDefense = (proposalId: number) => {
     }
   };
 
-  const handleSubmitRevision = (hearingId: number, file: File, fileName: string) => {
-    // Set revision approval deadline to 3 days from now
+  const handleSubmitRevision = (
+    hearingId: number,
+    file: File,
+    fileName: string
+  ) => {
     const today = new Date();
     const revisionApprovalDeadline = new Date(today);
     revisionApprovalDeadline.setDate(today.getDate() + 3);
@@ -460,14 +524,12 @@ const handleCompleteProposalDefense = (proposalId: number) => {
   };
 
   const handleNavigate = (page: string) => {
-    // Format: Pengumuman:ID
     if (page.startsWith("Pengumuman:")) {
       const id = Number(page.split(":")[1]);
       setSelectedAnnouncementId(id);
       setCurrentPage("Pengumuman");
       return;
     }
-
     setCurrentPage(page);
   };
 
@@ -475,7 +537,11 @@ const handleCompleteProposalDefense = (proposalId: number) => {
     <div className="min-h-screen bg-[#f5f5f5] flex flex-col pt-[57px]">
       <Header userRole={userRole} onRoleSwitch={handleRoleSwitch} />
       <div className="flex flex-1 relative">
-        <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userRole={userRole} />
+        <Sidebar
+          currentPage={currentPage}
+          onNavigate={handleNavigate}
+          userRole={userRole}
+        />
         <div className="flex-1 ml-64">
           {currentPage === "Beranda" && userRole === "Mahasiswa" && (
             <MainContent
@@ -506,15 +572,20 @@ const handleCompleteProposalDefense = (proposalId: number) => {
             <PenawaranTopikDosen onNavigate={setCurrentPage} />
           )}
 
-          {currentPage === "View Penawaran Topik Dosen" && userRole === "Dosen" && (
-            <ViewPenawaranTopikDosen
-              onBack={() => setCurrentPage("Penawaran Topik")}
-              onTopicSelect={handleTopicSelect}
-            />
-          )}
+          {currentPage === "View Penawaran Topik Dosen" &&
+            userRole === "Dosen" && (
+              <ViewPenawaranTopikDosen
+                onBack={() => setCurrentPage("Penawaran Topik")}
+                onTopicSelect={handleTopicSelect}
+              />
+            )}
 
           {currentPage === "Topic Detail" && selectedTopic && (
-            <TopicDetail topic={selectedTopic} onBack={handleBackToPenawaran} userRole={userRole} />
+            <TopicDetail
+              topic={selectedTopic}
+              onBack={handleBackToPenawaran}
+              userRole={userRole}
+            />
           )}
 
           {currentPage === "Tugas Akhir" && (
@@ -524,6 +595,8 @@ const handleCompleteProposalDefense = (proposalId: number) => {
               onEditProposal={handleEditProposal}
               onApproveAll={handleApproveAll}
               onUpdateProposal={handleUpdateProposal}
+              onOpenProposalGuidance={handleOpenProposalGuidance}
+              onOpenFinalGuidance={handleOpenFinalGuidance}
             />
           )}
 
@@ -570,6 +643,17 @@ const handleCompleteProposalDefense = (proposalId: number) => {
               onUpdateHearingInfo={handleUpdateHearingInfo}
               onFinishHearing={handleFinishHearing}
               onSubmitRevision={handleSubmitRevision}
+            />
+          )}
+
+          {currentPage === "Catatan Bimbingan" && guidanceContext && (
+            <CatatanBimbingan
+              stage={guidanceContext.stage}
+              thesisTitle={guidanceContext.title}
+              thesisStatus={guidanceContext.status}
+              supervisor1Name={guidanceContext.supervisor1}
+              supervisor2Name={guidanceContext.supervisor2}
+              onBack={handleBackFromGuidance}
             />
           )}
 

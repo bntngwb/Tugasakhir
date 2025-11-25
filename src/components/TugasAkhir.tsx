@@ -40,14 +40,27 @@ interface TugasAkhirProps {
   onEditProposal: (proposal: Proposal) => void;
   onApproveAll: () => void;
   onUpdateProposal?: (proposalId: number, updates: Partial<Proposal>) => void;
+
+  onOpenProposalGuidance?: () => void;
+  onOpenFinalGuidance?: () => void;
 }
 
-export function TugasAkhir({ onCreateProposal, proposals, onEditProposal, onApproveAll, onUpdateProposal }: TugasAkhirProps) {
+export function TugasAkhir({
+  onCreateProposal,
+  proposals,
+  onEditProposal,
+  onApproveAll,
+  onUpdateProposal,
+  onOpenProposalGuidance,
+  onOpenFinalGuidance,
+}: TugasAkhirProps) {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
-  // Filter proposals by stage
-  const proposalStageProposals = proposals.filter(p => p.stage === "proposal");
-  const finalStageProposals = proposals.filter(p => p.stage === "final");
+  const proposalStageProposals = proposals.filter((p) => p.stage === "proposal");
+  const finalStageProposals = proposals.filter((p) => p.stage === "final");
+
+  const hasSavedProposal = proposalStageProposals.length > 0;
+  const hasSavedFinal = finalStageProposals.length > 0;
 
   return (
     <>
@@ -89,6 +102,26 @@ export function TugasAkhir({ onCreateProposal, proposals, onEditProposal, onAppr
             </div>
           </button>
 
+          {/* 👉 NEW: Catatan Bimbingan Proposal */}
+          {hasSavedProposal && onOpenProposalGuidance && (
+            <button
+              onClick={onOpenProposalGuidance}
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center gap-3 hover:bg-gray-100 transition-colors mb-4"
+            >
+              <div className="w-10 h-10 bg-white border border-gray-300 rounded-lg flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-gray-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-gray-800 font-[Roboto] text-sm">
+                  Buat Catatan Bimbingan Proposal
+                </p>
+                <p className="text-xs text-gray-500 font-[Roboto]">
+                  Catat hasil bimbingan untuk tahap proposal
+                </p>
+              </div>
+            </button>
+          )}
+
           {/* Proposal Stage Proposals */}
           {proposalStageProposals.length === 0 ? (
             <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
@@ -114,6 +147,26 @@ export function TugasAkhir({ onCreateProposal, proposals, onEditProposal, onAppr
             <h2 className="text-gray-800 font-[Poppins] text-[18px] mb-1">Tugas Akhir Saya</h2>
             <p className="text-sm text-gray-500 font-[Roboto]">Tugas akhir yang telah lulus sidang proposal dan dapat didaftarkan untuk sidang akhir</p>
           </div>
+
+                    {/* 👉 NEW: Catatan Bimbingan Akhir */}
+          {hasSavedFinal && onOpenFinalGuidance && (
+            <button
+              onClick={onOpenFinalGuidance}
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center gap-3 hover:bg-gray-100 transition-colors mb-4"
+            >
+              <div className="w-10 h-10 bg-white border border-gray-300 rounded-lg flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-gray-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-gray-800 font-[Roboto] text-sm">
+                  Buat Catatan Bimbingan Akhir
+                </p>
+                <p className="text-xs text-gray-500 font-[Roboto]">
+                  Catat proses bimbingan pada tahap tugas akhir
+                </p>
+              </div>
+            </button>
+          )}
 
           {/* Final Stage Proposals */}
           {finalStageProposals.length === 0 ? (
