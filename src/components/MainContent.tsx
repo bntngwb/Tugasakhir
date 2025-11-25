@@ -423,22 +423,21 @@ export function MainContent({ onNavigate, proposals, takenHearings, onEditPropos
           <h2 className="text-gray-800 mb-4 font-[Poppins] text-[16px] font-bold font-normal">Menu Utama</h2>
           <div className="grid grid-cols-3 gap-4">
             {/* Tugas Akhir Card */}
-            <div 
-              onClick={() => onNavigate("tugas-akhir")}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-            >
-              <div className="mb-4">
-                <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center mb-3">
-                  <ClipboardList className="w-6 h-6 text-blue-500" />
-                </div>
-                <h3 className="text-gray-800 mb-1 font-[Poppins]">Tugas Akhir</h3>
-                <p className="text-sm text-gray-500 font-[Roboto]">Kelola Tugas Akhir Anda</p>
-              </div>
-              <button className="absolute bottom-4 right-4 w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-            
+<div 
+  onClick={() => onNavigate("Tugas Akhir")}
+  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+>
+  <div className="mb-4">
+    <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center mb-3">
+      <ClipboardList className="w-6 h-6 text-blue-500" />
+    </div>
+    <h3 className="text-gray-800 mb-1 font-[Poppins]">Tugas Akhir</h3>
+    <p className="text-sm text-gray-500 font-[Roboto]">Kelola Tugas Akhir Anda</p>
+  </div>
+  <button className="absolute bottom-4 right-4 w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+    <ArrowRight className="w-4 h-4" />
+  </button>
+</div>            
             {/* Tugas Akhir Terkini Card */}
             <div 
               onClick={() => {

@@ -55,12 +55,21 @@ interface MySidangDetailProps {
   hearing: TakenHearing;
   onBack: () => void;
   onCompleteProposalDefense?: (proposalId: number) => void;
+  onCompleteFinalDefense?: (proposalId: number) => void;
   onUpdateHearingInfo?: (hearingId: number, info: Partial<TakenHearing>) => void;
   onFinishHearing?: (hearingId: number, notes: string, deadline: string) => void;
   onSubmitRevision?: (hearingId: number, file: File, fileName: string) => void;
 }
 
-export function MySidangDetail({ hearing, onBack, onCompleteProposalDefense, onUpdateHearingInfo, onFinishHearing, onSubmitRevision }: MySidangDetailProps) {
+export function MySidangDetail({
+  hearing,
+  onBack,
+  onCompleteProposalDefense,
+  onCompleteFinalDefense,
+  onUpdateHearingInfo,
+  onFinishHearing,
+  onSubmitRevision,
+}: MySidangDetailProps) {
   const [revisionFile, setRevisionFile] = useState<File | null>(null);
   
   // Parse Indonesian date format
@@ -103,6 +112,14 @@ export function MySidangDetail({ hearing, onBack, onCompleteProposalDefense, onU
     if (onCompleteProposalDefense) {
       onCompleteProposalDefense(hearing.proposalId);
       toast.success("Sidang proposal selesai. Proposal telah dipindahkan ke Tugas Akhir Saya.");
+    }
+  };
+
+  // NEW: khusus sidang akhir → ubah status TA jadi “Tugas Akhir Telah Selesai”
+  const handleCompleteFinalDefense = () => {
+    if (onCompleteFinalDefense) {
+      onCompleteFinalDefense(hearing.proposalId);
+      toast.success("Sidang akhir selesai. Status tugas akhir diperbarui menjadi 'Tugas Akhir Telah Selesai'.");
     }
   };
 
@@ -696,7 +713,7 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
                       </>
                     ) : hearing.examiner2RevisionApproval === "rejected" ? (
                       <>
-                        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justifyCenter">
                           <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
@@ -780,13 +797,21 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
                         status: "Sidang Selesai"
                       });
                       
-                      // If this is a proposal defense, automatically move to final stage
-                      if (hearing.hearingType === "Proposal" && onCompleteProposalDefense) {
-                        onCompleteProposalDefense(hearing.proposalId);
-                        toast.success("Semua revisi telah disetujui! Sidang proposal selesai. Proposal telah dipindahkan ke Tugas Akhir Saya.");
-                      } else {
-                        toast.success("Semua revisi telah disetujui! Sidang telah selesai.");
-                      }
+                      // Jika ini sidang proposal → lanjut ke tahap TA
+// Jika ini sidang proposal → pindah ke tahap Tugas Akhir
+if (hearing.hearingType === "Proposal" && onCompleteProposalDefense) {
+  onCompleteProposalDefense(hearing.proposalId);
+  toast.success("Semua revisi telah disetujui! Sidang proposal selesai. Proposal telah dipindahkan ke Tugas Akhir Saya.");
+}
+// Jika ini sidang akhir → tandai Tugas Akhir selesai
+else if (hearing.hearingType === "Final" && onCompleteFinalDefense) {
+  onCompleteFinalDefense(hearing.proposalId);
+  toast.success("Selamat! Sidang akhir selesai dan tugas akhir Anda dinyatakan selesai.");
+}
+// Fallback
+else {
+  toast.success("Semua revisi telah disetujui! Sidang telah selesai.");
+}
                     }
                   }}
                   className="ml-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-[Inter] transition-colors flex items-center gap-2 whitespace-nowrap"
@@ -825,7 +850,7 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
 
         {/* Session Information */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex itemsCenter gap-2 mb-4">
             <FileText className="w-5 h-5 text-blue-600" />
             <h2 className="text-gray-800 font-[Poppins] text-[18px]">Informasi Sidang</h2>
           </div>
@@ -1216,7 +1241,7 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
                       <div className="flex-1">
                         <h3 className="text-gray-800 font-[Poppins] font-semibold mb-1">Selamat!</h3>
                         <p className="text-sm text-gray-600 font-[Roboto]">
-                          Anda telah menyelesaikan seluruh proses tugas akhir. Selamat atas pencapaian Anda!
+                          Anda telah menyelesaikan seluruh proses tugas akhir. Status tugas akhir Anda sekarang adalah <strong>"Tugas Akhir Telah Selesai"</strong>.
                         </p>
                       </div>
                     </div>
