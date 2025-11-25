@@ -106,7 +106,7 @@ const getStatusColor = (status: string) => {
     case "Tugas Akhir - Dalam Pengerjaan":
       return "bg-blue-100 text-blue-700";
     case "Tugas Akhir Telah Selesai":
-      return "bg-gray-800 text-white";
+      return "bg-green-100 text-green-700";
     default:
       return "bg-blue-100 text-blue-700";
   }
@@ -238,12 +238,17 @@ export function ProposalCardWithApproval({
 
         {/* Main Card */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          {/* Header */}
+          {/* Header - Always visible */}
           <div
             onClick={() => {
               if (proposal.status === "Menunggu Persetujuan") {
+                // Mode menunggu approval → buka/tutup detail approval
                 setIsExpanded(!isExpanded);
+              } else if (proposal.status === "Tugas Akhir Telah Selesai") {
+                // Tugas Akhir selesai → hanya boleh lihat detail (modal), tidak boleh edit
+                setIsDetailOpen(true);
               } else {
+                // Status lain (Draft, Siap Daftar Sidang, Siap Daftar Sidang Akhir, dll.) → boleh edit
                 onEditProposal(proposal);
               }
             }}
@@ -577,7 +582,7 @@ export function ProposalCardWithApproval({
         </div>
       </div>
 
-      {/* Detail Approval Modal */}
+      {/* Detail Modal */}
       {isDetailOpen && (
         <>
           <div
