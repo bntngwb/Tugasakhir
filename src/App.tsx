@@ -17,6 +17,7 @@ import { Pengumuman } from "./components/Pengumuman";
 import { Toaster } from "./components/ui/sonner";
 import { ViewPenawaranTopikDosen } from "./components/ViewPenawaranTopikDosen";
 import { CatatanBimbingan } from "./components/CatatanBimbingan";
+import { SidangDosen } from "./components/SidangDosen";
 
 interface Topic {
   id: number;
@@ -79,6 +80,14 @@ export default function App() {
     supervisor1: string;
     supervisor2: string;
   } | null>(null);
+
+  // 🔹 Ringkasan sidang untuk integrasi ke Beranda Dosen
+  const [sidangSummary, setSidangSummary] = useState({
+    ajuanCount: 5, // default mengikuti dummy awal
+    menungguCount: 5, // default mengikuti dummy awal
+    perluDinilaiCount: 3, // opsional
+    revisiCount: 2, // opsional
+  });
 
   // Announcements data
   const announcements: Announcement[] = [
@@ -319,9 +328,7 @@ export default function App() {
     updates: Partial<Proposal>
   ) => {
     setProposals(
-      proposals.map((p) =>
-        p.id === proposalId ? { ...p, ...updates } : p
-      )
+      proposals.map((p) => (p.id === proposalId ? { ...p, ...updates } : p))
     );
   };
 
@@ -561,6 +568,10 @@ export default function App() {
               onAnnouncementClick={(id) => {
                 setCurrentPage("Pengumuman");
               }}
+              ajuanSidangCount={sidangSummary.ajuanCount}
+              sidangMenungguCount={sidangSummary.menungguCount}
+              sidangPerluDinilaiCount={sidangSummary.perluDinilaiCount}
+              sidangRevisiCount={sidangSummary.revisiCount}
             />
           )}
 
@@ -608,12 +619,20 @@ export default function App() {
             />
           )}
 
-          {currentPage === "Sidang" && (
+          {currentPage === "Sidang" && userRole === "Mahasiswa" && (
             <Sidang
               onChooseHearing={handleChooseHearing}
               takenHearings={takenHearings}
               onViewHearingDetail={handleViewHearingDetail}
               onCompleteProposalDefense={handleCompleteProposalDefense}
+            />
+          )}
+
+          {currentPage === "Sidang" && userRole === "Dosen" && (
+            <SidangDosen
+              onSummaryChange={(summary) =>
+                setSidangSummary((prev) => ({ ...prev, ...summary }))
+              }
             />
           )}
 
