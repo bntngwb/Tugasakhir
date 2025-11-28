@@ -23,11 +23,17 @@ interface BerandaDosenProps {
   onNavigate: (page: string) => void;
   onAnnouncementClick?: (announcementId: number) => void;
 
-  // 🔹 dari App.tsx, angka realtime sidang
+  // dari App.tsx, angka realtime sidang
   ajuanSidangCount?: number;
   sidangMenungguCount?: number;
   sidangPerluDinilaiCount?: number;
   sidangRevisiCount?: number;
+
+  // dari App.tsx, angka realtime bimbingan
+  bimbinganS1Count?: number;
+  bimbinganS2Count?: number;
+  bimbinganS3Count?: number;
+  ajuanBimbinganCount?: number;
 }
 
 export function BerandaDosen({
@@ -38,14 +44,23 @@ export function BerandaDosen({
   sidangMenungguCount,
   sidangPerluDinilaiCount,
   sidangRevisiCount,
+  bimbinganS1Count,
+  bimbinganS2Count,
+  bimbinganS3Count,
+  ajuanBimbinganCount,
 }: BerandaDosenProps) {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
-  // 🔹 fallback ke 0 kalau belum ada summary
+  // fallback ke 0 kalau belum ada summary
   const ajuanCount = ajuanSidangCount ?? 0;
   const menungguCount = sidangMenungguCount ?? 0;
   const perluDinilaiCount = sidangPerluDinilaiCount ?? 0;
   const revisiCount = sidangRevisiCount ?? 0;
+
+  const s1Count = bimbinganS1Count ?? 0;
+  const s2Count = bimbinganS2Count ?? 0;
+  const s3Count = bimbinganS3Count ?? 0;
+  const ajuanBimbCount = ajuanBimbinganCount ?? 0;
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -70,7 +85,7 @@ export function BerandaDosen({
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-gray-800 text-2xl font-[Poppins] font-medium font-bold">
+            <h1 className="text-gray-800 text-2xl font-[Poppins] font-bold">
               Selamat Datang, Bintang Hanoraga
             </h1>
             <button
@@ -92,7 +107,7 @@ export function BerandaDosen({
           <div className="lg:col-span-2 space-y-4">
             {/* Menunggu Persetujuan Anda Section */}
             <div>
-              <h2 className="text-gray-800 mb-4 font-[Poppins] text-[16px] font-bold font-normal">
+              <h2 className="text-gray-800 mb-4 font-[Poppins] text-[16px] font-bold">
                 Menunggu Persetujuan Anda
               </h2>
               <div className="grid grid-cols-3 gap-4">
@@ -143,7 +158,10 @@ export function BerandaDosen({
                 </div>
 
                 {/* Ajuan Bimbingan Card */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer">
+                <div
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                  onClick={() => onNavigate("Bimbingan Aktif")}
+                >
                   <div className="mb-3">
                     <div className="w-10 h-10 bg-yellow-100 rounded flex items-center justify-center mb-2">
                       <Users className="w-5 h-5 text-yellow-500" />
@@ -152,17 +170,24 @@ export function BerandaDosen({
                       Ajuan Bimbingan
                     </h3>
                     <p className="text-sm text-gray-500 font-[Roboto]">
-                      7 ajuan baru
+                      {ajuanBimbCount} ajuan baru
                     </p>
                   </div>
-                  <button className="absolute bottom-3 right-3 w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNavigate("Bimbingan Aktif");
+                    }}
+                    className="absolute bottom-3 right-3 w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                  >
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             </div>
 
-            <h2 className="text-gray-800 mb-4 font-[Poppins] text-[16px] font-bold font-normal">
+            <h2 className="text-gray-800 mb-4 font-[Poppins] text-[16px] font-bold">
               Menu Utama
             </h2>
 
@@ -197,7 +222,9 @@ export function BerandaDosen({
                     <p className="text-xs text-gray-500 font-[Roboto] mb-2">
                       Mahasiswa:
                     </p>
-                    <p className="text-2xl text-gray-800 font-[Poppins]">13</p>
+                    <p className="text-2xl text-gray-800 font-[Poppins]">
+                      {s1Count}
+                    </p>
                   </div>
                 </div>
 
@@ -207,7 +234,9 @@ export function BerandaDosen({
                     <p className="text-xs text-gray-500 font-[Roboto] mb-2">
                       Mahasiswa:
                     </p>
-                    <p className="text-2xl text-gray-800 font-[Poppins]">4</p>
+                    <p className="text-2xl text-gray-800 font-[Poppins]">
+                      {s2Count}
+                    </p>
                   </div>
                 </div>
 
@@ -217,7 +246,9 @@ export function BerandaDosen({
                     <p className="text-xs text-gray-500 font-[Roboto] mb-2">
                       Mahasiswa:
                     </p>
-                    <p className="text-2xl text-gray-800 font-[Poppins]">2</p>
+                    <p className="text-2xl text-gray-800 font-[Poppins]">
+                      {s3Count}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -253,7 +284,7 @@ export function BerandaDosen({
               </div>
 
               <div className="grid md:grid-cols-3 gap-3">
-                {/* Status Menunggu = Perlu Dinilai + Revisi */}
+                {/* Status Menunggu */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow duration-200">
                   <div>
                     <p className="text-gray-800 font-[Poppins] mb-1 text-sm">
@@ -381,7 +412,7 @@ export function BerandaDosen({
               description:
                 "myITS Thesis adalah platform untuk mengelola bimbingan dan sidang mahasiswa. Di sini Anda dapat menerima permintaan bimbingan, menilai sidang, dan memantau progress mahasiswa bimbingan. Gunakan menu utama untuk mengakses fitur-fitur dengan mudah.",
               imageUrl:
-                "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWFjaGVyJTIwZGVzayUyMGxhcHRvcHxlbnwxfHx8fDE3Mzc4MDAwMDB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+                "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWFjaGVrJTIwZGVzayUyMGxhcHRvcHxlbnwxfHx8fDE3Mzc4MDAwMDB8MA&ixlib=rb-4.1.0&q=80&w=1080",
             },
             {
               title: "Permintaan Bimbingan",

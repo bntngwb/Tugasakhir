@@ -18,6 +18,7 @@ import { Toaster } from "./components/ui/sonner";
 import { ViewPenawaranTopikDosen } from "./components/ViewPenawaranTopikDosen";
 import { CatatanBimbingan } from "./components/CatatanBimbingan";
 import { SidangDosen } from "./components/SidangDosen";
+import { BimbinganAktif } from "./components/BimbinganAktif";
 
 interface Topic {
   id: number;
@@ -60,6 +61,13 @@ interface Proposal {
   approvalDeadline?: string;
 }
 
+interface BimbinganSummary {
+  s1Count: number;
+  s2Count: number;
+  s3Count: number;
+  ajuanCount: number;
+}
+
 export default function App() {
   const [selectedAnnouncementId, setSelectedAnnouncementId] =
     useState<number | null>(null);
@@ -81,12 +89,20 @@ export default function App() {
     supervisor2: string;
   } | null>(null);
 
-  // 🔹 Ringkasan sidang untuk integrasi ke Beranda Dosen
+  // Ringkasan sidang untuk integrasi ke Beranda Dosen
   const [sidangSummary, setSidangSummary] = useState({
-    ajuanCount: 5, // default mengikuti dummy awal
-    menungguCount: 5, // default mengikuti dummy awal
-    perluDinilaiCount: 3, // opsional
-    revisiCount: 2, // opsional
+    ajuanCount: 5, // default dummy
+    menungguCount: 5,
+    perluDinilaiCount: 3,
+    revisiCount: 2,
+  });
+
+  // Ringkasan bimbingan untuk Beranda Dosen
+  const [bimbinganSummary, setBimbinganSummary] = useState<BimbinganSummary>({
+    s1Count: 13, // default dummy awal
+    s2Count: 4,
+    s3Count: 2,
+    ajuanCount: 7,
   });
 
   // Announcements data
@@ -564,14 +580,27 @@ export default function App() {
           {currentPage === "Beranda" && userRole === "Dosen" && (
             <BerandaDosen
               announcements={announcements}
-              onNavigate={setCurrentPage}
+              onNavigate={handleNavigate}
               onAnnouncementClick={(id) => {
+                setSelectedAnnouncementId(id);
                 setCurrentPage("Pengumuman");
               }}
               ajuanSidangCount={sidangSummary.ajuanCount}
               sidangMenungguCount={sidangSummary.menungguCount}
               sidangPerluDinilaiCount={sidangSummary.perluDinilaiCount}
               sidangRevisiCount={sidangSummary.revisiCount}
+              bimbinganS1Count={bimbinganSummary.s1Count}
+              bimbinganS2Count={bimbinganSummary.s2Count}
+              bimbinganS3Count={bimbinganSummary.s3Count}
+              ajuanBimbinganCount={bimbinganSummary.ajuanCount}
+            />
+          )}
+
+          {currentPage === "Bimbingan Aktif" && userRole === "Dosen" && (
+            <BimbinganAktif
+              onSummaryChange={(summary) =>
+                setBimbinganSummary((prev) => ({ ...prev, ...summary }))
+              }
             />
           )}
 
