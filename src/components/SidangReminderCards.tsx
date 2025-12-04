@@ -53,11 +53,11 @@ export function SidangReminderCards({ takenHearings, onViewHearingDetail }: Sida
                     <span className="text-white text-xs font-[Poppins]">P2</span>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center">
-                    <span className="text-white text-xs font-[Poppins]">AD</span>
+                    <span className="text-white text-xs font-[Poppins]">KL</span>
                   </div>
                 </div>
                 <span className="text-xs text-yellow-800 font-[Roboto]">
-                  Menunggu persetujuan dari 3 pihak
+  Menunggu persetujuan dari Pembimbing 1, Pembimbing 2, dan Kepala Lab
                 </span>
               </div>
             </div>
@@ -132,11 +132,11 @@ export function SidangReminderCards({ takenHearings, onViewHearingDetail }: Sida
                     <span className="text-white text-xs font-[Poppins]">P2</span>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center">
-                    <span className="text-white text-xs font-[Poppins]">P3</span>
+                    <span className="text-white text-xs font-[Poppins]">PB1</span>
                   </div>
                 </div>
                 <span className="text-xs text-yellow-800 font-[Roboto]">
-                  Menunggu approval dari 3 penguji
+  Menunggu approval dari Penguji 1, Penguji 2, dan Pembimbing 1
                 </span>
               </div>
             </div>

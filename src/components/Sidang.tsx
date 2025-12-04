@@ -1,4 +1,4 @@
-import { Calendar, Clock, MapPin, BookOpen, ChevronRight, X, AlertCircle, Plus } from "lucide-react";
+import { Calendar, Clock, MapPin, BookOpen, ChevronRight, X, AlertCircle, Plus, Users } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { GuideModal } from "./GuideModal";
@@ -98,6 +98,25 @@ export function Sidang({ onChooseHearing, takenHearings, onViewHearingDetail, on
             </button>
           </div>
           <p className="text-sm text-gray-500 font-[Roboto]">Kelola jadwal dan informasi sidang Anda</p>
+        </div>
+
+        {/* SECTION: Memilih Sidang (CTA) */}
+        <div className="bg-white rounded-lg border border-dashed border-blue-300 p-4 mb-6 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-gray-800 font-[Poppins] text-[16px] mb-1">
+              Memilih & Mendaftar Sidang
+            </h2>
+            <p className="text-xs text-gray-500 font-[Roboto]">
+              Pilih jadwal sidang proposal atau sidang akhir yang tersedia sesuai status tugas akhir Anda.
+            </p>
+          </div>
+          <button
+            onClick={onChooseHearing}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-[Inter] hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            Memilih Sidang
+          </button>
         </div>
 
         {/* Revision Deadline Reminder */}
@@ -221,24 +240,6 @@ export function Sidang({ onChooseHearing, takenHearings, onViewHearingDetail, on
           );
         })()}
 
-        {/* Choose Hearing Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-          <h2 className="text-gray-800 font-[Poppins] text-[18px] mb-4">Pilih Sidang</h2>
-          <button
-            onClick={onChooseHearing}
-            className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center gap-3 hover:bg-gray-100 transition-colors group"
-          >
-            <div className="w-10 h-10 bg-white border border-gray-300 rounded-lg flex items-center justify-center">
-              <Plus className="w-5 h-5 text-gray-600" />
-            </div>
-            <div className="text-left flex-1">
-              <p className="text-gray-800 font-[Roboto] text-sm">Memilih Sidang</p>
-              <p className="text-xs text-gray-500 font-[Roboto]">Pilih jadwal sidang yang tersedia</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
-          </button>
-        </div>
-
         {/* My Hearings Section */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-gray-800 font-[Poppins] text-[18px] mb-4">Sidang Saya</h2>
@@ -313,7 +314,7 @@ export function Sidang({ onChooseHearing, takenHearings, onViewHearingDetail, on
         {
           title: "Memilih & Mendaftar Sidang",
           description: "Klik 'Memilih Sidang' untuk melihat jadwal sidang yang tersedia. Pastikan proposal Anda berstatus 'Siap Daftar Sidang' sebelum mendaftar. Pilih jadwal yang sesuai, lalu pilih proposal yang akan didaftarkan. Sistem akan mengkonfirmasi pendaftaran Anda.",
-          imageUrl: "https://images.unsplash.com/photo-1617106399900-61a7561d1d2f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzY2hlZHVlJTIwY2FsZW5kYXIlMjBwbGFubmluZ3xlbnwxfHx8fDE3NjM3MTI0MzJ8MA&ixlib=rb-4.1.0&q=80&w=1080"
+          imageUrl: "https://images.unsplash.com/photo-1617106399900-61a7561d1d2f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzY2hlZHVsZSUyMGNhbGVuZGFyJTIwcGxhbm5pbmd8ZW58MXx8fHwxNzYzNzEyNDMyfDA&ixlib=rb-4.1.0&q=80&w=1080"
         },
         {
           title: "Revisi & Deadline",

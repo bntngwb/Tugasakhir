@@ -16,10 +16,9 @@ interface TopicDetailProps {
     interestedStudents: string[];
   };
   onBack: () => void;
-  userRole: "Mahasiswa" | "Dosen";
 }
 
-export function TopicDetail({ topic, onBack, userRole }: TopicDetailProps) {
+export function TopicDetail({ topic, onBack }: TopicDetailProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [emailData, setEmailData] = useState({
     studentName: "Bintang Wibi Hanoraga",
@@ -103,7 +102,7 @@ export function TopicDetail({ topic, onBack, userRole }: TopicDetailProps) {
                 <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
                 <h3 className="font-[Poppins] text-gray-800">Deskripsi Topik</h3>
               </div>
-            <p className="text-sm text-gray-700 font-[Roboto] leading-relaxed pl-3">
+              <p className="text-sm text-gray-700 font-[Roboto] leading-relaxed pl-3">
                 {topic.description}
               </p>
             </div>
@@ -182,18 +181,16 @@ export function TopicDetail({ topic, onBack, userRole }: TopicDetailProps) {
               </div>
             </div>
 
-            {/* Action Button – hanya untuk Mahasiswa */}
-            {userRole === "Mahasiswa" && (
-              <div className="pt-4 border-t border-gray-200">
-                <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 font-[Roboto] transition-colors flex items-center gap-2"
-                >
-                  <Mail className="w-4 h-4" />
-                  Hubungi Dosen
-                </button>
-              </div>
-            )}
+            {/* Action Button */}
+            <div className="pt-4 border-t border-gray-200">
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 font-[Roboto] transition-colors flex items-center gap-2"
+              >
+                <Mail className="w-4 h-4" />
+                Hubungi Dosen
+              </button>
+            </div>
           </div>
         </div>
 
@@ -207,7 +204,7 @@ export function TopicDetail({ topic, onBack, userRole }: TopicDetailProps) {
 
       {/* Email Modal */}
       <AnimatePresence>
-        {isModalOpen && userRole === "Mahasiswa" && (
+        {isModalOpen && (
           <>
             {/* Backdrop */}
             <motion.div

@@ -1,7 +1,7 @@
 
-  # MyITS Thesis
+  # MyITS Thesis Full
 
-  This is a code bundle for MyITS Thesis. The original project is available at https://www.figma.com/design/5figRrz9uOCuJRkuYTUOFj/MyITS-Thesis.
+  This is a code bundle for MyITS Thesis Full. The original project is available at https://www.figma.com/design/NzayLivwg5WPu9VSBUQkFU/MyITS-Thesis-Full.
 
   ## Running the code
 

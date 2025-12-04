@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from "./ui/select";
 import { PenawaranTopik } from "./PenawaranTopik";
-import { TopicDetail } from "./TopicDetail";
 
 interface TopicOffer {
   id: number;
@@ -39,8 +38,6 @@ export function PenawaranTopikDosen({ onNavigate }: PenawaranTopikDosenProps) {
   const [topics, setTopics] = useState<TopicOffer[]>([]);
   const [editingTopic, setEditingTopic] = useState<TopicOffer | null>(null);
   const [viewMode, setViewMode] = useState<"manage" | "view">("manage"); // New state for view mode
-  const [selectedTopic, setSelectedTopic] = useState<TopicOffer | null>(null);
-
 
   // Form states
   const [formData, setFormData] = useState({
@@ -185,32 +182,6 @@ export function PenawaranTopikDosen({ onNavigate }: PenawaranTopikDosenProps) {
     setShowForm(false);
   };
 
-// Jika dosen memilih "Lihat", tampilkan halaman detail topik
-if (selectedTopic) {
-  const mappedTopic = {
-    id: selectedTopic.id,
-    title: selectedTopic.title,
-    supervisor: selectedTopic.supervisor1,
-    supervisor2:
-      selectedTopic.supervisor2 && selectedTopic.supervisor2 !== "-"
-        ? selectedTopic.supervisor2
-        : undefined,
-    category: selectedTopic.laboratory,
-    status: selectedTopic.status,
-    description: selectedTopic.description,
-    minimalKnowledge: selectedTopic.minimalKnowledge,
-    interestedStudents: [] as string[], // belum ada data, jadi kosong dulu
-  };
-
-  return (
-    <TopicDetail
-      topic={mappedTopic}
-      onBack={() => setSelectedTopic(null)}
-      userRole="Dosen"
-    />
-  );
-}
-
   // If viewing topic list (mahasiswa view)
   if (viewMode === "view") {
     return (
@@ -264,44 +235,31 @@ if (selectedTopic) {
           <div className="bg-white rounded-lg border border-gray-200 p-8">
             {/* Status Toggle (Only shown when editing) */}
             {editingTopic && (
-              <div className="mb-6 p-4 rounded-lg border border-gray-200 bg-white">
-  <Label className="font-[Poppins] text-gray-700 mb-3 block">Status Topik</Label>
-
-  <div className="flex flex-col gap-3">
-    {/* Radio: Tersedia */}
-    <label
-      className={`flex items-center gap-3 cursor-pointer p-3 rounded-lg border transition-all
-        ${formData.status === 'Tersedia' ? 'border-gray-800 bg-gray-50' : 'border-gray-300'}`}
-    >
-      <input
-        type="radio"
-        name="status"
-        value="Tersedia"
-        checked={formData.status === "Tersedia"}
-        onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-        className="w-4 h-4 text-gray-700 focus:ring-gray-500"
-      />
-      <span className="font-[Roboto] text-gray-800">Tersedia</span>
-    </label>
-
-    {/* Radio: Diambil */}
-    <label
-      className={`flex items-center gap-3 cursor-pointer p-3 rounded-lg border transition-all
-        ${formData.status === 'Diambil' ? 'border-gray-800 bg-gray-50' : 'border-gray-300'}`}
-    >
-      <input
-        type="radio"
-        name="status"
-        value="Diambil"
-        checked={formData.status === "Diambil"}
-        onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-        className="w-4 h-4 text-gray-700 focus:ring-gray-500"
-      />
-      <span className="font-[Roboto] text-gray-800">Sudah Diambil</span>
-    </label>
-  </div>
-</div>
-
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <Label className="font-[Poppins] text-gray-700 mb-3 block">Status Topik</Label>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setFormData({ ...formData, status: "Tersedia" })}
+                    className={`px-6 py-2 rounded-lg font-[Roboto] text-sm transition-all ${
+                      formData.status === "Tersedia"
+                        ? "bg-green-600 text-white border-2 border-green-700"
+                        : "bg-white text-gray-700 border-2 border-gray-300 hover:border-green-400"
+                    }`}
+                  >
+                    Tersedia
+                  </button>
+                  <button
+                    onClick={() => setFormData({ ...formData, status: "Diambil" })}
+                    className={`px-6 py-2 rounded-lg font-[Roboto] text-sm transition-all ${
+                      formData.status === "Diambil"
+                        ? "bg-red-600 text-white border-2 border-red-700"
+                        : "bg-white text-gray-700 border-2 border-gray-300 hover:border-red-400"
+                    }`}
+                  >
+                    Sudah Diambil
+                  </button>
+                </div>
+              </div>
             )}
 
             <div className="space-y-6">
@@ -451,9 +409,18 @@ if (selectedTopic) {
 
           {/* Footer */}
           <footer className="mt-16 pt-8 border-t border-gray-200">
-            <p className="text-sm text-gray-500 text-center font-[Roboto]">
-              © 2021-2025 Institut Teknologi Sepuluh Nopember
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500 font-[Roboto]">
+                © 2021-2025 Institut Teknologi Sepuluh Nopember
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="bg-blue-600 px-3 py-1 rounded flex items-center gap-2">
+                  <span className="text-white text-xs font-[Roboto] font-semibold">ADVANCING</span>
+                  <span className="text-white text-xs font-[Roboto] font-semibold">HUMANITY</span>
+                </div>
+                <div className="text-blue-600 font-bold text-lg">ITS</div>
+              </div>
+            </div>
           </footer>
 
           {/* Guide Modal */}
@@ -523,7 +490,7 @@ if (selectedTopic) {
             Panduan Penggunaan
           </button>
           <button
-  onClick={() => onNavigate("View Penawaran Topik Dosen")}
+            onClick={() => setViewMode("view")}
             className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-[Roboto] text-sm"
           >
             <Eye className="w-4 h-4" />
@@ -601,37 +568,19 @@ if (selectedTopic) {
                       </div>
                     </div>
                     <div className="flex gap-2">
-  {/* Lihat */}
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={() => setSelectedTopic(topic)}
-  >
-    <Eye />
-    <span>Lihat</span>
-  </Button>
-
-  {/* Edit */}
-  <Button
-    variant="secondary"
-    size="sm"
-    onClick={() => handleEdit(topic)}
-  >
-    <Edit />
-    <span>Edit</span>
-  </Button>
-
-  {/* Hapus */}
-  <Button
-    variant="destructive"
-    size="sm"
-    onClick={() => handleDelete(topic.id)}
-  >
-    <Trash2 />
-    <span>Hapus</span>
-  </Button>
-</div>
-
+                      <button
+                        onClick={() => handleEdit(topic)}
+                        className="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200 transition-colors font-[Roboto]"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(topic.id)}
+                        className="px-3 py-1.5 text-sm bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200 transition-colors font-[Roboto]"
+                      >
+                        Hapus
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

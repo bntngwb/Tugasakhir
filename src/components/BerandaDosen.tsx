@@ -1,10 +1,4 @@
-import {
-  BookOpen,
-  Users,
-  ClipboardCheck,
-  ChevronRight,
-  Bell,
-} from "lucide-react";
+import { BookOpen, Users, ClipboardCheck, ChevronRight, Bell } from "lucide-react";
 import { GuideModal } from "./GuideModal";
 import { useState } from "react";
 
@@ -23,44 +17,33 @@ interface BerandaDosenProps {
   onNavigate: (page: string) => void;
   onAnnouncementClick?: (announcementId: number) => void;
 
-  // dari App.tsx, angka realtime sidang
-  ajuanSidangCount?: number;
-  sidangMenungguCount?: number;
-  sidangPerluDinilaiCount?: number;
-  sidangRevisiCount?: number;
-
-  // dari App.tsx, angka realtime bimbingan
-  bimbinganS1Count?: number;
-  bimbinganS2Count?: number;
-  bimbinganS3Count?: number;
-  ajuanBimbinganCount?: number;
+  // Callback ke App.tsx untuk membuka halaman dengan "mode" tertentu
+  onOpenBimbinganAjuanTopik?: () => void;
+  onOpenBimbinganApprovalSidang?: () => void;
+  onOpenSidangApprovalRevisi?: () => void;
 }
 
 export function BerandaDosen({
   announcements,
   onNavigate,
   onAnnouncementClick,
-  ajuanSidangCount,
-  sidangMenungguCount,
-  sidangPerluDinilaiCount,
-  sidangRevisiCount,
-  bimbinganS1Count,
-  bimbinganS2Count,
-  bimbinganS3Count,
-  ajuanBimbinganCount,
+  onOpenBimbinganAjuanTopik,
+  onOpenBimbinganApprovalSidang,
+  onOpenSidangApprovalRevisi,
 }: BerandaDosenProps) {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
-  // fallback ke 0 kalau belum ada summary
-  const ajuanCount = ajuanSidangCount ?? 0;
-  const menungguCount = sidangMenungguCount ?? 0;
-  const perluDinilaiCount = sidangPerluDinilaiCount ?? 0;
-  const revisiCount = sidangRevisiCount ?? 0;
+  // Summary angka (sementara hardcoded, bisa nanti disinkronkan dengan data real)
+  const totalSidang = 6;             // jumlah sidang
+  const perluNilai = 1;             // sidang dengan status "Perlu Dinilai"
+  const perluApprovalSidang = 1;     // sidang dengan status "Perlu Approval"
 
-  const s1Count = bimbinganS1Count ?? 0;
-  const s2Count = bimbinganS2Count ?? 0;
-  const s3Count = bimbinganS3Count ?? 0;
-  const ajuanBimbCount = ajuanBimbinganCount ?? 0;
+  const totalS1 = 3; // mahasiswa S1 dalam bimbingan
+  const totalS2 = 2;  // mahasiswa S2
+  const totalS3 = 0;  // mahasiswa S3
+
+  const totalAjuanTopik = 3;         // jumlah ajuan topik
+  const bimbinganPerluApproval = 2;  // jumlah mahasiswa yang perlu approval sidang di Bimbingan Aktif
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -85,7 +68,7 @@ export function BerandaDosen({
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-gray-800 text-2xl font-[Poppins] font-bold">
+            <h1 className="text-gray-800 text-2xl font-[Poppins] font-medium font-bold">
               Selamat Datang, Bintang Hanoraga
             </h1>
             <button
@@ -96,9 +79,7 @@ export function BerandaDosen({
               <span className="font-[Poppins]">Panduan Penggunaan</span>
             </button>
           </div>
-          <p className="text-gray-500 font-[Roboto]">
-            Portal Dosen myITS Thesis
-          </p>
+          <p className="text-gray-500 font-[Roboto]">Portal Dosen myITS Thesis</p>
         </div>
 
         {/* Main Content Grid */}
@@ -107,21 +88,28 @@ export function BerandaDosen({
           <div className="lg:col-span-2 space-y-4">
             {/* Menunggu Persetujuan Anda Section */}
             <div>
-              <h2 className="text-gray-800 mb-4 font-[Poppins] text-[16px] font-bold">
+              <h2 className="text-gray-800 mb-4 font-[Poppins] text-[16px] font-bold font-normal">
                 Menunggu Persetujuan Anda
               </h2>
               <div className="grid grid-cols-3 gap-4">
-                {/* Ajuan Proposal Card */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer">
+                {/* Card 1: Ajuan Topik */}
+                <div
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                  onClick={() => {
+                    if (onOpenBimbinganAjuanTopik) {
+                      onOpenBimbinganAjuanTopik();
+                    } else {
+                      onNavigate("Bimbingan Aktif");
+                    }
+                  }}
+                >
                   <div className="mb-3">
                     <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center mb-2">
                       <ClipboardCheck className="w-5 h-5 text-blue-500" />
                     </div>
-                    <h3 className="text-gray-800 mb-1 font-[Poppins]">
-                      Ajuan Proposal
-                    </h3>
+                    <h3 className="text-gray-800 mb-1 font-[Poppins]">Ajuan Topik</h3>
                     <p className="text-sm text-gray-500 font-[Roboto]">
-                      5 ajuan baru
+                      {totalAjuanTopik} ajuan topik
                     </p>
                   </div>
                   <button className="absolute bottom-3 right-3 w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
@@ -129,65 +117,59 @@ export function BerandaDosen({
                   </button>
                 </div>
 
-                {/* Ajuan Sidang Card */}
+                {/* Card 2: Approval Sidang (dari Bimbingan Aktif) */}
                 <div
                   className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-                  onClick={() => onNavigate("Sidang")}
+                  onClick={() => {
+                    if (onOpenBimbinganApprovalSidang) {
+                      onOpenBimbinganApprovalSidang();
+                    } else {
+                      onNavigate("Bimbingan Aktif");
+                    }
+                  }}
                 >
                   <div className="mb-3">
                     <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center mb-2">
                       <ClipboardCheck className="w-5 h-5 text-green-500" />
                     </div>
-                    <h3 className="text-gray-800 mb-1 font-[Poppins]">
-                      Ajuan Sidang
-                    </h3>
+                    <h3 className="text-gray-800 mb-1 font-[Poppins]">Approval Sidang</h3>
                     <p className="text-sm text-gray-500 font-[Roboto]">
-                      {ajuanCount} ajuan baru
+                      {bimbinganPerluApproval} mahasiswa perlu approval
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNavigate("Sidang");
-                    }}
-                    className="absolute bottom-3 right-3 w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                  >
+                  <button className="absolute bottom-3 right-3 w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Ajuan Bimbingan Card */}
+                {/* Card 3: Approval Revisi (dari Sidang) */}
                 <div
                   className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-                  onClick={() => onNavigate("Bimbingan Aktif")}
+                  onClick={() => {
+                    if (onOpenSidangApprovalRevisi) {
+                      onOpenSidangApprovalRevisi();
+                    } else {
+                      onNavigate("Sidang");
+                    }
+                  }}
                 >
                   <div className="mb-3">
                     <div className="w-10 h-10 bg-yellow-100 rounded flex items-center justify-center mb-2">
                       <Users className="w-5 h-5 text-yellow-500" />
                     </div>
-                    <h3 className="text-gray-800 mb-1 font-[Poppins]">
-                      Ajuan Bimbingan
-                    </h3>
+                  <h3 className="text-gray-800 mb-1 font-[Poppins]">Approval Revisi</h3>
                     <p className="text-sm text-gray-500 font-[Roboto]">
-                      {ajuanBimbCount} ajuan baru
+                      {perluApprovalSidang} sidang perlu approval revisi
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNavigate("Bimbingan Aktif");
-                    }}
-                    className="absolute bottom-3 right-3 w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                  >
+                  <button className="absolute bottom-3 right-3 w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             </div>
 
-            <h2 className="text-gray-800 mb-4 font-[Poppins] text-[16px] font-bold">
+            <h2 className="text-gray-800 mb-4 font-[Poppins] text-[16px] font-bold font-normal">
               Menu Utama
             </h2>
 
@@ -199,9 +181,7 @@ export function BerandaDosen({
                     <Users className="w-5 h-5 text-yellow-600" />
                   </div>
                   <div>
-                    <h3 className="text-gray-800 font-[Poppins]">
-                      Bimbingan Aktif
-                    </h3>
+                    <h3 className="text-gray-800 font-[Poppins]">Bimbingan Aktif</h3>
                     <p className="text-xs text-gray-500 font-[Roboto]">
                       Mahasiswa dalam bimbingan
                     </p>
@@ -216,49 +196,43 @@ export function BerandaDosen({
               </div>
 
               <div className="grid md:grid-cols-3 gap-3">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-lg transition-shadow duration-200">
+                <div
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                  onClick={() => onNavigate("Bimbingan Aktif")}
+                >
                   <div>
                     <p className="text-gray-800 font-[Poppins] mb-1">S1</p>
-                    <p className="text-xs text-gray-500 font-[Roboto] mb-2">
-                      Mahasiswa:
-                    </p>
-                    <p className="text-2xl text-gray-800 font-[Poppins]">
-                      {s1Count}
-                    </p>
+                    <p className="text-xs text-gray-500 font-[Roboto] mb-2">Mahasiswa:</p>
+                    <p className="text-2xl text-gray-800 font-[Poppins]">{totalS1}</p>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-lg transition-shadow duration-200">
+                <div
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                  onClick={() => onNavigate("Bimbingan Aktif")}
+                >
                   <div>
                     <p className="text-gray-800 font-[Poppins] mb-1">S2</p>
-                    <p className="text-xs text-gray-500 font-[Roboto] mb-2">
-                      Mahasiswa:
-                    </p>
-                    <p className="text-2xl text-gray-800 font-[Poppins]">
-                      {s2Count}
-                    </p>
+                    <p className="text-xs text-gray-500 font-[Roboto] mb-2">Mahasiswa:</p>
+                    <p className="text-2xl text-gray-800 font-[Poppins]">{totalS2}</p>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-lg transition-shadow duration-200">
+                <div
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                  onClick={() => onNavigate("Bimbingan Aktif")}
+                >
                   <div>
                     <p className="text-gray-800 font-[Poppins] mb-1">S3</p>
-                    <p className="text-xs text-gray-500 font-[Roboto] mb-2">
-                      Mahasiswa:
-                    </p>
-                    <p className="text-2xl text-gray-800 font-[Poppins]">
-                      {s3Count}
-                    </p>
+                    <p className="text-xs text-gray-500 font-[Roboto] mb-2">Mahasiswa:</p>
+                    <p className="text-2xl text-gray-800 font-[Poppins]">{totalS3}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Sidang Card (parent clickable + angka realtime) */}
-            <div
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-              onClick={() => onNavigate("Sidang")}
-            >
+            {/* Sidang Card */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-lg transition-shadow duration-200">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center">
@@ -272,11 +246,7 @@ export function BerandaDosen({
                   </div>
                 </div>
                 <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onNavigate("Sidang");
-                  }}
+                  onClick={() => onNavigate("Sidang")}
                   className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -284,47 +254,48 @@ export function BerandaDosen({
               </div>
 
               <div className="grid md:grid-cols-3 gap-3">
-                {/* Status Menunggu */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow duration-200">
+                {/* Jumlah Sidang */}
+                <div
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                  onClick={() => onNavigate("Sidang")}
+                >
                   <div>
-                    <p className="text-gray-800 font-[Poppins] mb-1 text-sm">
-                      Status Menunggu
-                    </p>
-                    <p className="text-xs text-gray-500 font-[Roboto] mb-2">
-                      Perlu aksi Anda
-                    </p>
+                    <p className="text-gray-800 font-[Poppins] mb-1">Jumlah Sidang</p>
+                    <p className="text-xs text-gray-500 font-[Roboto] mb-2">Total:</p>
                     <p className="text-2xl text-green-600 font-[Poppins]">
-                      {menungguCount}
+                      {totalSidang}
                     </p>
                   </div>
                 </div>
 
-                {/* Perlu Dinilai */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow duration-200">
+                {/* Perlu Nilai */}
+                <div
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                  onClick={() => onNavigate("Sidang")}
+                >
                   <div>
-                    <p className="text-gray-800 font-[Poppins] mb-1 text-sm">
-                      Perlu Dinilai
-                    </p>
+                    <p className="text-gray-800 font-[Poppins] mb-1">Perlu Nilai</p>
                     <p className="text-xs text-gray-500 font-[Roboto] mb-2">
-                      Belum diberi nilai
+                      Harus dinilai:
                     </p>
-                    <p className="text-2xl text-amber-600 font-[Poppins]">
-                      {perluDinilaiCount}
+                    <p className="text-2xl text-yellow-600 font-[Poppins]">
+                      {perluNilai}
                     </p>
                   </div>
                 </div>
 
-                {/* Revisi */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow duration-200">
+                {/* Perlu Approval */}
+                <div
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                  onClick={() => onNavigate("Sidang")}
+                >
                   <div>
-                    <p className="text-gray-800 font-[Poppins] mb-1 text-sm">
-                      Revisi
-                    </p>
+                    <p className="text-gray-800 font-[Poppins] mb-1">Perlu Approval</p>
                     <p className="text-xs text-gray-500 font-[Roboto] mb-2">
-                      Menunggu verifikasi
+                      Menunggu approval:
                     </p>
                     <p className="text-2xl text-red-600 font-[Poppins]">
-                      {revisiCount}
+                      {perluApprovalSidang}
                     </p>
                   </div>
                 </div>
@@ -356,10 +327,7 @@ export function BerandaDosen({
                     onClick={() => {
                       onNavigate("Pengumuman");
                       if (onAnnouncementClick) {
-                        setTimeout(
-                          () => onAnnouncementClick(announcement.id),
-                          100
-                        );
+                        setTimeout(() => onAnnouncementClick(announcement.id), 100);
                       }
                     }}
                   >
@@ -374,7 +342,7 @@ export function BerandaDosen({
                             {announcement.category}
                           </span>
                           {announcement.isNew && (
-                            <span className="inline-block w-2 h-2 bg-red-500 rounded-full"></span>
+                            <span className="inline-block w-2 h-2 bg-red-500 rounded-full" />
                           )}
                         </div>
                         <h4 className="text-sm text-gray-800 font-[Poppins] line-clamp-2 group-hover:text-blue-600 transition-colors">
@@ -394,7 +362,7 @@ export function BerandaDosen({
 
         {/* Footer */}
         <footer className="mt-12 pt-6 border-t border-gray-200">
-          <p className="text-sm text-gray-500 text-center font-[Roboto]">
+          <p className="text-sm text-gray-500 font-[Roboto]">
             © 2021-2025 Institut Teknologi Sepuluh Nopember
           </p>
         </footer>
@@ -424,7 +392,7 @@ export function BerandaDosen({
             {
               title: "Sidang dan Penilaian",
               description:
-                "Menu Sidang membantu Anda mengelola jadwal sidang mahasiswa. Penilaian Sidang menunjukkan sidang yang perlu dinilai, Sidang Mendatang untuk jadwal sidang dalam waktu dekat, dan Revisi Pending untuk sidang yang memerlukan revisi. Pastikan Anda menyelesaikan penilaian tepat waktu.",
+                "Menu Sidang membantu Anda mengelola jadwal sidang mahasiswa. Perlu Nilai menunjukkan sidang yang perlu dinilai, Jumlah Sidang untuk total sidang yang Anda ikuti, dan Perlu Approval untuk sidang yang memerlukan approval revisi. Pastikan Anda menyelesaikan penilaian tepat waktu.",
               imageUrl:
                 "https://images.unsplash.com/photo-1531482615713-2afd69097998?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcmVzZW50YXRpb24lMjBtZWV0aW5nfGVufDF8fHx8MTczNzgwMDAwMHww&ixlib=rb-4.1.0&q=80&w=1080",
             },

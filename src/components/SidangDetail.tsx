@@ -52,39 +52,22 @@ export function SidangDetail({ hearing, onBack, proposals, onTakeHearing }: Sida
   const [selectedProposalId, setSelectedProposalId] = useState<string>("");
 
   // Filter proposals based on hearing type and readiness
-const eligibleProposals = proposals.filter(p => {
-  if (p.isDraft) return false;
-
-  if (hearing.type === "Proposal") {
-    // Hanya yang sudah "Siap Daftar Sidang"
-    return p.stage === "proposal" && p.status === "Siap Daftar Sidang";
-  }
-
-  if (hearing.type === "Final") {
-    // Hanya yang sudah "Siap Daftar Sidang Akhir"
-    return p.stage === "final" && p.status === "Siap Daftar Sidang Akhir";
-  }
-
-  return false;
-});
-
-  const isFinal = hearing.type === "Final";
-
-const selectLabel = isFinal
-  ? "Pilih Tugas Akhir"
-  : "Pilih Topik Proposal";
-
-const helperText = isFinal
-  ? "Pilih tugas akhir yang sudah disetujui untuk didaftarkan ke sidang akhir"
-  : "Pilih proposal yang sudah diajukan sebelumnya";
-
-const placeholderText = isFinal
-  ? "Pilih tugas akhir"
-  : "Pilih proposal";
-
-const emptyText = isFinal
-  ? "Belum ada tugas akhir yang siap didaftarkan sidang akhir"
-  : "Belum ada proposal yang siap didaftarkan sidang";
+  const eligibleProposals = proposals.filter(p => {
+    // Must not be a draft
+    if (p.isDraft) return false;
+    
+    // For Proposal hearings, only show proposals in "proposal" stage
+    if (hearing.type === "Proposal") {
+      return p.stage === "proposal" && (p.status === "Siap Daftar Sidang" || p.status === "Menunggu Persetujuan");
+    }
+    
+    // For Final hearings, only show proposals in "final" stage
+    if (hearing.type === "Final") {
+      return p.stage === "final" && (p.status === "Siap Daftar Sidang Akhir" || p.status === "Siap Daftar Sidang");
+    }
+    
+    return false;
+  });
 
   const handleTake = () => {
     if (!selectedProposalId) {
@@ -142,30 +125,33 @@ const emptyText = isFinal
           <div className="space-y-4">
             <div>
               <Label htmlFor="proposal" className="text-gray-800 font-[Poppins]">
-  {selectLabel} <span className="text-red-500">*</span>
-</Label>
-<p className="text-xs text-gray-500 font-[Roboto] mb-2">
-  {helperText}
-</p>
-<Select value={selectedProposalId} onValueChange={setSelectedProposalId}>
-  <SelectTrigger className="font-[Roboto]">
-    <SelectValue placeholder={placeholderText} />
-  </SelectTrigger>
-  <SelectContent>
-    {eligibleProposals.length === 0 ? (
-      <div className="px-3 py-2 text-xs text-gray-500 font-[Roboto]">
-        {emptyText}
-      </div>
-    ) : (
-      eligibleProposals.map((p) => (
-        <SelectItem key={p.id} value={p.id.toString()}>
-          {p.title}
-        </SelectItem>
-      ))
-    )}
-  </SelectContent>
-</Select>
-
+                Pilih Topik Proposal <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-xs text-gray-500 font-[Roboto] mb-2">
+                Pilih proposal yang sudah diajukan sebelumnya
+              </p>
+              <Select value={selectedProposalId} onValueChange={setSelectedProposalId}>
+                <SelectTrigger className="font-[Roboto]">
+                  <SelectValue placeholder="Pilih proposal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {eligibleProposals.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500 font-[Roboto]">
+                      Tidak ada proposal yang memenuhi syarat
+                    </div>
+                  ) : (
+                    eligibleProposals.map((proposal) => (
+                      <SelectItem 
+                        key={proposal.id} 
+                        value={proposal.id.toString()} 
+                        className="font-[Roboto]"
+                      >
+                        {proposal.title}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Warning if no eligible proposals */}

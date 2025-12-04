@@ -1,24 +1,57 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { MainContent } from "./components/MainContent";
-import { BerandaDosen } from "./components/BerandaDosen";
 import { PenawaranTopik } from "./components/PenawaranTopik";
-import { PenawaranTopikDosen } from "./components/PenawaranTopikDosen";
 import { TopicDetail } from "./components/TopicDetail";
 import { TugasAkhir } from "./components/TugasAkhir";
 import { ProposalForm } from "./components/ProposalForm";
 import { Sidang } from "./components/Sidang";
-import { MemilihSidang, Hearing } from "./components/MemilihSidang";
+import { MemilihSidang } from "./components/MemilihSidang";
 import { SidangDetail } from "./components/SidangDetail";
 import { MySidangDetail } from "./components/MySidangDetail";
 import { Panduan } from "./components/Panduan";
 import { Pengumuman } from "./components/Pengumuman";
-import { Toaster } from "./components/ui/sonner";
-import { ViewPenawaranTopikDosen } from "./components/ViewPenawaranTopikDosen";
-import { CatatanBimbingan } from "./components/CatatanBimbingan";
+import { BerandaDosen } from "./components/BerandaDosen";
+import { PenawaranTopikDosen } from "./components/PenawaranTopikDosen";
+import { BimbinganAktif } from "./components/BimbinganAktifUpdated";
 import { SidangDosen } from "./components/SidangDosen";
-import { BimbinganAktif } from "./components/BimbinganAktif";
+import { DetailSidang } from "./components/DetailSidang";
+import { AdminBeranda } from "./components/AdminBeranda";
+import { JadwalSidangAdminCalendar } from "./components/JadwalSidangAdminCalendar";
+import { JadwalSidangDetailPage } from "./components/JadwalSidangDetailPage";
+import { PengumumanAdmin } from "./components/PengumumanAdmin";
+import { PengumumanAdminList } from "./components/PengumumanAdminList";
+import { PengumumanAdminEdit } from "./components/PengumumanAdminEdit";
+import { Administrasi } from "./components/Administrasi";
+import { AlokasiPembimbing } from "./components/AlokasiPembimbing";
+import { PembimbinganDosenAdmin } from "./components/PembimbinganDosenAdmin";
+import { TugasAkhirMahasiswa } from "./components/TugasAkhirMahasiswa";
+import { RekapitulasiNilai } from "./components/RekapitulasiNilai";
+import { KonfigurasiProdi } from "./components/KonfigurasiProdi";
+import { KonfigurasiNilai } from "./components/KonfigurasiNilai";
+import { KonfigurasiMyITS } from "./components/KonfigurasiMyITS";
+import { KonfigurasiPrasyarat } from "./components/KonfigurasiPrasyarat";
+import { KonfigurasiSidang } from "./components/KonfigurasiSidang";
+import { DataProdi } from "./components/DataProdi";
+import { Toaster } from "./components/ui/sonner";
+import { toast } from "sonner@2.0.3";
+import { ProposalDetail } from "./components/ProposalDetail";
+
+interface HearingEvent {
+  id: number;
+  title: string;
+  student: string;
+  nrp: string;
+  type: "Proposal" | "Tugas Akhir";
+  startTime: string;
+  endTime: string;
+  room: string;
+  supervisors: string[];
+  examiners: string[];
+  day: number;
+  category: string;
+}
 
 interface Topic {
   id: number;
@@ -61,18 +94,87 @@ interface Proposal {
   approvalDeadline?: string;
 }
 
-interface BimbinganSummary {
-  s1Count: number;
-  s2Count: number;
-  s3Count: number;
-  ajuanCount: number;
+interface Hearing {
+  id: number;
+  name: string;
+  type: "Proposal" | "Final";
+  batch: number;
+  period: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+}
+
+interface Announcement {
+  id: number;
+  title: string;
+  category: "Penting" | "Info" | "Acara" | "Deadline" | "Sistem";
+  date: string;
+  content: string;
+  imageUrl: string;
+  isNew: boolean;
+}
+
+interface TakenHearing {
+  id: number;
+  hearingId: number;
+  hearingName: string;
+  hearingType: "Proposal" | "Final";
+  proposalId: number;
+  proposalTitle: string;
+  status:
+    | "Menunggu Approval Sidang"
+    | "Menunggu Jadwal Sidang"
+    | "Menunggu Sidang"
+    | "Sidang Selesai"
+    | "Revisi"
+    | "Menunggu Approval Revisi";
+
+  // Approval sidang fields
+  supervisor1Approval?: "pending" | "approved" | "rejected";
+  supervisor2Approval?: "pending" | "approved" | "rejected";
+  adminApproval?: "pending" | "approved" | "rejected";
+  supervisor1ApprovalDate?: string;
+  supervisor2ApprovalDate?: string;
+  adminApprovalDate?: string;
+  approvalDeadline?: string;
+
+  date?: string;
+  time?: string;
+  location?: string;
+  onlineStatus?: "Online" | "Offline";
+  examiner1?: string;
+  examiner2?: string;
+  examiner3?: string;
+  examiner?: string;
+  proposalCategory?: string;
+  proposalAbstract?: string;
+  supervisor1?: string;
+  supervisor2?: string;
+
+  // Revision approval fields
+  examiner1RevisionApproval?: "pending" | "approved" | "rejected";
+  examiner2RevisionApproval?: "pending" | "approved" | "rejected";
+  examiner3RevisionApproval?: "pending" | "approved" | "rejected";
+  examiner1RevisionApprovalDate?: string;
+  examiner2RevisionApprovalDate?: string;
+  examiner3RevisionApprovalDate?: string;
+  revisionApprovalDeadline?: string;
+
+  revisionDeadline?: string;
+  revisionNotes?: string;
+  revisionNotesExaminer1?: string;
+  revisionNotesExaminer2?: string;
+  revisionNotesExaminer3?: string;
+  revisionFile?: File | null;
+  revisionFileName?: string;
 }
 
 export default function App() {
-  const [selectedAnnouncementId, setSelectedAnnouncementId] =
-    useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState("Beranda");
-  const [userRole, setUserRole] = useState<"Mahasiswa" | "Dosen">("Mahasiswa");
+  const [userRole, setUserRole] = useState<"Mahasiswa" | "Dosen" | "Admin">(
+    "Mahasiswa"
+  );
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [editingProposal, setEditingProposal] = useState<Proposal | null>(null);
@@ -80,30 +182,21 @@ export default function App() {
   const [selectedHearing, setSelectedHearing] = useState<Hearing | null>(null);
   const [selectedTakenHearing, setSelectedTakenHearing] =
     useState<TakenHearing | null>(null);
-
-  const [guidanceContext, setGuidanceContext] = useState<{
-    stage: "proposal" | "final";
-    title: string;
-    status: string;
-    supervisor1: string;
-    supervisor2: string;
-  } | null>(null);
-
-  // Ringkasan sidang untuk integrasi ke Beranda Dosen
-  const [sidangSummary, setSidangSummary] = useState({
-    ajuanCount: 5, // default dummy
-    menungguCount: 5,
-    perluDinilaiCount: 3,
-    revisiCount: 2,
-  });
-
-  // Ringkasan bimbingan untuk Beranda Dosen
-  const [bimbinganSummary, setBimbinganSummary] = useState<BimbinganSummary>({
-    s1Count: 13, // default dummy awal
-    s2Count: 4,
-    s3Count: 2,
-    ajuanCount: 7,
-  });
+  const [showCreatePengumuman, setShowCreatePengumuman] = useState(false);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState<
+    number | undefined
+  >(undefined);
+  const [selectedHearingEvent, setSelectedHearingEvent] =
+    useState<HearingEvent | null>(null);
+  const [bimbinganView, setBimbinganView] = useState<
+    "default" | "ajuanTopik" | "approval"
+  >("default");
+  const [sidangInitialFilter, setSidangInitialFilter] = useState<string | null>(
+    null
+  );
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(
+    null
+  );
 
   // Announcements data
   const announcements: Announcement[] = [
@@ -148,7 +241,7 @@ export default function App() {
       content:
         "Penawaran topik tugas akhir untuk semester genap 2024/2025 telah dibuka. Mahasiswa dapat melihat daftar topik yang ditawarkan di menu Penawaran Topik. Topik mencakup berbagai bidang: Machine Learning, IoT, Web Development, Mobile Development, dan Cyber Security. Konsultasikan dengan dosen pembimbing untuk pemilihan topik yang sesuai dengan minat dan kemampuan Anda.",
       imageUrl:
-        "https://images.unsplash.com/photo-1613059550870-63bbef4744e3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhbm5vdW5jZW1lbnQlMjBub2FyZHxlbnwxfHx8fDE3NjM3MTMyOTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+        "https://images.unsplash.com/photo-1613059550870-63bbef4744e3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhbm5vdW5jZW1lbnQlMjBub3RpY2UlMjBib2FyZHxlbnwxfHx8fDE3NjM3MTMyOTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
       isNew: false,
     },
     {
@@ -201,6 +294,8 @@ export default function App() {
     },
   ];
 
+  const hearings: Hearing[] = availableHearings;
+
   const handleTopicSelect = (topic: Topic) => {
     setSelectedTopic(topic);
     setCurrentPage("Topic Detail");
@@ -218,7 +313,19 @@ export default function App() {
 
   const handleEditProposal = (proposal: Proposal) => {
     setEditingProposal(proposal);
-    setCurrentPage("Proposal Form");
+
+    // TA final yang masih dalam pengerjaan juga boleh diedit
+    const isEditableFinalTA =
+      proposal.stage === "final" &&
+      proposal.status === "Tugas Akhir - Dalam Pengerjaan";
+
+    if (proposal.isDraft || isEditableFinalTA) {
+      // Draft proposal ATAU TA final dalam pengerjaan → buka form
+      setCurrentPage("Proposal Form");
+    } else {
+      // Selain itu (Menunggu Persetujuan, Siap Daftar Sidang, dst) → hanya detail
+      setCurrentPage("Proposal Detail");
+    }
   };
 
   const handleBackToTugasAkhir = () => {
@@ -255,7 +362,7 @@ export default function App() {
       scheduleDate: "",
       scheduleTime: "",
       status: isDraft ? "Draft" : "Menunggu Persetujuan",
-      isDraft,
+      isDraft: isDraft,
       missingFields: proposalData.missingFields || [],
       stage: editingProposal ? editingProposal.stage : "proposal",
 
@@ -278,10 +385,12 @@ export default function App() {
     };
 
     if (editingProposal) {
+      // Update existing proposal
       setProposals(
         proposals.map((p) => (p.id === editingProposal.id ? newProposal : p))
       );
     } else {
+      // Add new proposal
       setProposals([...proposals, newProposal]);
     }
 
@@ -289,60 +398,27 @@ export default function App() {
     setCurrentPage("Tugas Akhir");
   };
 
-  // === Catatan Bimbingan handlers ===
-  const handleOpenProposalGuidance = () => {
-    const proposal = proposals.find((p) => p.stage === "proposal");
-    if (!proposal) return;
-
-    setGuidanceContext({
-      stage: "proposal",
-      title: proposal.title,
-      status: proposal.status,
-      supervisor1: proposal.supervisor1,
-      supervisor2: proposal.supervisor2,
-    });
-    setCurrentPage("Catatan Bimbingan");
-  };
-
-  const handleOpenFinalGuidance = () => {
-    const ta = proposals.find((p) => p.stage === "final");
-    if (!ta) return;
-
-    setGuidanceContext({
-      stage: "final",
-      title: ta.title,
-      status: ta.status || "Tugas Akhir - Dalam Pengerjaan",
-      supervisor1: ta.supervisor1,
-      supervisor2: ta.supervisor2,
-    });
-    setCurrentPage("Catatan Bimbingan");
-  };
-
-  const handleBackFromGuidance = () => {
-    setCurrentPage("Tugas Akhir");
-  };
-  // === END Catatan Bimbingan handlers ===
-
   const handleApproveAll = () => {
     setProposals(
       proposals.map((p) => {
-        if (p.status === "Menunggu Persetujuan") {
-          if (p.stage === "proposal") {
-            return { ...p, status: "Siap Daftar Sidang" };
-          }
-          if (p.stage === "final") {
-            return { ...p, status: "Siap Daftar Sidang Akhir" };
-          }
+        if (p.status !== "Menunggu Persetujuan") return p;
+
+        // Tahap proposal → siap daftar sidang proposal
+        if (p.stage === "proposal") {
+          return { ...p, status: "Siap Daftar Sidang" };
         }
+
+        // Tahap final → siap daftar sidang akhir
+        if (p.stage === "final") {
+          return { ...p, status: "Siap Daftar Sidang Akhir" };
+        }
+
         return p;
       })
     );
   };
 
-  const handleUpdateProposal = (
-    proposalId: number,
-    updates: Partial<Proposal>
-  ) => {
+  const handleUpdateProposal = (proposalId: number, updates: Partial<Proposal>) => {
     setProposals(
       proposals.map((p) => (p.id === proposalId ? { ...p, ...updates } : p))
     );
@@ -373,7 +449,7 @@ export default function App() {
       id: Date.now(),
       hearingId: hearing.id,
       hearingName: hearing.name,
-      hearingType: hearing.type,
+      hearingType: hearing.type, // Add hearing type
       proposalId: proposal.id,
       proposalTitle: proposal.title,
       status: "Menunggu Approval Sidang",
@@ -436,7 +512,7 @@ export default function App() {
     setTakenHearings(
       takenHearings.map((h) =>
         h.proposalId === proposalId && h.hearingType === "Proposal"
-          ? { ...h, status: "Sidang Selesai" as const }
+          ? ({ ...h, status: "Sidang Selesai" } as TakenHearing)
           : h
       )
     );
@@ -445,16 +521,14 @@ export default function App() {
   const handleCompleteFinalDefense = (proposalId: number) => {
     setProposals((prev) =>
       prev.map((p) =>
-        p.id === proposalId
-          ? { ...p, status: "Tugas Akhir Telah Selesai" }
-          : p
+        p.id === proposalId ? { ...p, status: "Tugas Akhir Telah Selesai" } : p
       )
     );
 
     setTakenHearings((prev) =>
       prev.map((h) =>
         h.proposalId === proposalId && h.hearingType === "Final"
-          ? { ...h, status: "Sidang Selesai" as const }
+          ? ({ ...h, status: "Sidang Selesai" } as TakenHearing)
           : h
       )
     );
@@ -465,9 +539,11 @@ export default function App() {
     info: Partial<TakenHearing>
   ) => {
     setTakenHearings(
-      takenHearings.map((h) => (h.id === hearingId ? { ...h, ...info } : h))
+      takenHearings.map((h) =>
+        h.id === hearingId ? { ...h, ...info } : h
+      )
     );
-
+    // Also update selectedTakenHearing if it's the one being updated
     if (selectedTakenHearing && selectedTakenHearing.id === hearingId) {
       setSelectedTakenHearing({ ...selectedTakenHearing, ...info });
     }
@@ -481,16 +557,16 @@ export default function App() {
     setTakenHearings(
       takenHearings.map((h) =>
         h.id === hearingId
-          ? {
+          ? ({
               ...h,
-              status: "Revisi" as const,
+              status: "Revisi",
               revisionNotes: notes,
               revisionDeadline: deadline,
-            }
+            } as TakenHearing)
           : h
       )
     );
-
+    // Also update selectedTakenHearing if it's the one being updated
     if (selectedTakenHearing && selectedTakenHearing.id === hearingId) {
       setSelectedTakenHearing({
         ...selectedTakenHearing,
@@ -506,6 +582,7 @@ export default function App() {
     file: File,
     fileName: string
   ) => {
+    // Set revision approval deadline to 3 days from now
     const today = new Date();
     const revisionApprovalDeadline = new Date(today);
     revisionApprovalDeadline.setDate(today.getDate() + 3);
@@ -513,47 +590,113 @@ export default function App() {
     setTakenHearings(
       takenHearings.map((h) =>
         h.id === hearingId
-          ? {
+          ? ({
               ...h,
               revisionFile: file,
               revisionFileName: fileName,
-              status: "Menunggu Approval Revisi" as const,
-              revisionApprovalDeadline: revisionApprovalDeadline.toLocaleDateString(
-                "id-ID",
-                { day: "numeric", month: "long", year: "numeric" }
-              ),
-            }
+              status: "Menunggu Approval Revisi",
+              revisionApprovalDeadline:
+                revisionApprovalDeadline.toLocaleDateString("id-ID", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                }),
+            } as TakenHearing)
           : h
       )
     );
-
+    // Also update selectedTakenHearing if it's the one being updated
     if (selectedTakenHearing && selectedTakenHearing.id === hearingId) {
       setSelectedTakenHearing({
         ...selectedTakenHearing,
         revisionFile: file,
         revisionFileName: fileName,
         status: "Menunggu Approval Revisi",
-        revisionApprovalDeadline: revisionApprovalDeadline.toLocaleDateString(
-          "id-ID",
-          { day: "numeric", month: "long", year: "numeric" }
-        ),
+        revisionApprovalDeadline:
+          revisionApprovalDeadline.toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
       });
     }
   };
 
-  const handleRoleSwitch = (newRole: "Mahasiswa" | "Dosen") => {
+  const handleRoleSwitch = (newRole: "Mahasiswa" | "Dosen" | "Admin") => {
     setUserRole(newRole);
-    setCurrentPage("Beranda");
+    setCurrentPage("Beranda"); // Reset to homepage when switching roles
+    setShowCreatePengumuman(false); // Reset pengumuman form state
+    setEditingAnnouncementId(undefined);
+
+    setBimbinganView("default");
+    setSidangInitialFilter(null);
   };
 
-  const handleNavigate = (page: string) => {
-    if (page.startsWith("Pengumuman:")) {
-      const id = Number(page.split(":")[1]);
-      setSelectedAnnouncementId(id);
-      setCurrentPage("Pengumuman");
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+
+      // Kembali ke daftar sidang dosen
+      if (hash === "#/dosen/sidang") {
+        setCurrentPage("Sidang");
+        return;
+      }
+
+      // Masuk ke detail sidang dosen
+      if (hash.startsWith("#/dosen/sidang/")) {
+        const sidangId = hash.split("/").pop();
+        setCurrentPage(`sidang/${sidangId}`);
+        return;
+      }
+    };
+
+    // Cek hash saat pertama kali mount
+    handleHashChange();
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  // Handle navigation to reset pengumuman form state
+  const handleNavigate = (page: string, announcementId?: number) => {
+    if (
+      page !== "Pengumuman" &&
+      page !== "Buat Pengumuman Baru" &&
+      page !== "Edit Pengumuman" &&
+      page !== "Kelola Pengumuman"
+    ) {
+      setShowCreatePengumuman(false);
+      setEditingAnnouncementId(undefined);
+    }
+    if (page === "Edit Pengumuman") {
+      setEditingAnnouncementId(announcementId);
+    }
+
+    // reset intent kalau user buka manual
+    if (page === "Bimbingan Aktif") {
+      setBimbinganView("default");
+    }
+    if (page === "Sidang") {
+      setSidangInitialFilter(null);
+    }
+
+    // Handle hash navigation for sidang detail
+    if (page.includes("#/dosen/sidang/")) {
+      const sidangId = page.split("/").pop();
+      setCurrentPage(`sidang/${sidangId}`);
       return;
     }
+
     setCurrentPage(page);
+  };
+
+  const handleViewProposalDetail = (proposal: Proposal) => {
+    setEditingProposal(proposal);
+    setCurrentPage("Proposal Detail");
+  };
+
+  const handleNavigateToHearing = () => {
+    setCurrentPage("Sidang");
   };
 
   return (
@@ -568,7 +711,7 @@ export default function App() {
         <div className="flex-1 ml-64">
           {currentPage === "Beranda" && userRole === "Mahasiswa" && (
             <MainContent
-              onNavigate={handleNavigate}
+              onNavigate={setCurrentPage}
               proposals={proposals}
               takenHearings={takenHearings}
               onEditProposal={handleEditProposal}
@@ -581,27 +724,26 @@ export default function App() {
             <BerandaDosen
               announcements={announcements}
               onNavigate={handleNavigate}
-              onAnnouncementClick={(id) => {
-                setSelectedAnnouncementId(id);
+              onAnnouncementClick={() => {
                 setCurrentPage("Pengumuman");
               }}
-              ajuanSidangCount={sidangSummary.ajuanCount}
-              sidangMenungguCount={sidangSummary.menungguCount}
-              sidangPerluDinilaiCount={sidangSummary.perluDinilaiCount}
-              sidangRevisiCount={sidangSummary.revisiCount}
-              bimbinganS1Count={bimbinganSummary.s1Count}
-              bimbinganS2Count={bimbinganSummary.s2Count}
-              bimbinganS3Count={bimbinganSummary.s3Count}
-              ajuanBimbinganCount={bimbinganSummary.ajuanCount}
+              onOpenBimbinganAjuanTopik={() => {
+                setBimbinganView("ajuanTopik");
+                setCurrentPage("Bimbingan Aktif");
+              }}
+              onOpenBimbinganApprovalSidang={() => {
+                setBimbinganView("approval");
+                setCurrentPage("Bimbingan Aktif");
+              }}
+              onOpenSidangApprovalRevisi={() => {
+                setSidangInitialFilter("Perlu Approval");
+                setCurrentPage("Sidang");
+              }}
             />
           )}
 
-          {currentPage === "Bimbingan Aktif" && userRole === "Dosen" && (
-            <BimbinganAktif
-              onSummaryChange={(summary) =>
-                setBimbinganSummary((prev) => ({ ...prev, ...summary }))
-              }
-            />
+          {currentPage === "Beranda" && userRole === "Admin" && (
+            <AdminBeranda onNavigate={setCurrentPage} />
           )}
 
           {currentPage === "Penawaran Topik" && userRole === "Mahasiswa" && (
@@ -612,31 +754,45 @@ export default function App() {
             <PenawaranTopikDosen onNavigate={setCurrentPage} />
           )}
 
-          {currentPage === "View Penawaran Topik Dosen" &&
-            userRole === "Dosen" && (
-              <ViewPenawaranTopikDosen
-                onBack={() => setCurrentPage("Penawaran Topik")}
-                onTopicSelect={handleTopicSelect}
-              />
-            )}
-
-          {currentPage === "Topic Detail" && selectedTopic && (
-            <TopicDetail
-              topic={selectedTopic}
-              onBack={handleBackToPenawaran}
-              userRole={userRole}
-            />
+          {currentPage === "Bimbingan Aktif" && userRole === "Dosen" && (
+            <BimbinganAktif initialView={bimbinganView} />
           )}
 
-          {currentPage === "Tugas Akhir" && (
+          {currentPage === "Sidang" &&
+            userRole === "Dosen" &&
+            !currentPage.includes("/") && (
+              <SidangDosen initialFilter={sidangInitialFilter ?? undefined} />
+            )}
+
+          {currentPage.startsWith("sidang/") && userRole === "Dosen" && (
+            <DetailSidang sidangId={currentPage.split("/")[1]} />
+          )}
+
+          {currentPage === "Topic Detail" && selectedTopic && (
+            <TopicDetail topic={selectedTopic} onBack={handleBackToPenawaran} />
+          )}
+
+          {userRole === "Mahasiswa" && currentPage === "Tugas Akhir" && (
             <TugasAkhir
-              onCreateProposal={handleCreateProposal}
               proposals={proposals}
+              takenHearings={takenHearings}
+              onSelectProposal={setSelectedProposal}
+              onCreateProposal={() => {
+                if (proposals.length > 0) {
+                  toast.error(
+                    "Anda sudah memiliki tugas akhir / proposal aktif."
+                  );
+                  return;
+                }
+                setEditingProposal(null);
+                setCurrentPage("Proposal Form");
+              }}
               onEditProposal={handleEditProposal}
-              onApproveAll={handleApproveAll}
-              onUpdateProposal={handleUpdateProposal}
-              onOpenProposalGuidance={handleOpenProposalGuidance}
-              onOpenFinalGuidance={handleOpenFinalGuidance}
+              onViewProposal={handleViewProposalDetail}
+              hearings={hearings.filter((h) => h.type === "Proposal")}
+              onNavigateToHearing={handleNavigateToHearing}
+              onUpdateProposal={handleUpdateProposal}   // ⬅️ ini yang penting
+
             />
           )}
 
@@ -654,14 +810,6 @@ export default function App() {
               takenHearings={takenHearings}
               onViewHearingDetail={handleViewHearingDetail}
               onCompleteProposalDefense={handleCompleteProposalDefense}
-            />
-          )}
-
-          {currentPage === "Sidang" && userRole === "Dosen" && (
-            <SidangDosen
-              onSummaryChange={(summary) =>
-                setSidangSummary((prev) => ({ ...prev, ...summary }))
-              }
             />
           )}
 
@@ -694,94 +842,123 @@ export default function App() {
             />
           )}
 
-          {currentPage === "Catatan Bimbingan" && guidanceContext && (
-            <CatatanBimbingan
-              stage={guidanceContext.stage}
-              thesisTitle={guidanceContext.title}
-              thesisStatus={guidanceContext.status}
-              supervisor1Name={guidanceContext.supervisor1}
-              supervisor2Name={guidanceContext.supervisor2}
-              onBack={handleBackFromGuidance}
-            />
-          )}
-
           {currentPage === "Panduan" && <Panduan />}
 
-          {currentPage === "Pengumuman" && (
-            <Pengumuman
-              announcements={announcements}
-              selectedId={selectedAnnouncementId}
-              onClearSelected={() => setSelectedAnnouncementId(null)}
+          {currentPage === "Pengumuman" && userRole !== "Admin" && (
+            <Pengumuman announcements={announcements} />
+          )}
+
+          {currentPage === "Pengumuman" &&
+            userRole === "Admin" &&
+            !showCreatePengumuman && (
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h1 className="text-gray-800 font-[Poppins]">Pengumuman</h1>
+                  <button
+                    onClick={() => setShowCreatePengumuman(true)}
+                    className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-[Roboto] transition-colors"
+                  >
+                    Buat Pengumuman Baru
+                  </button>
+                </div>
+                <Pengumuman announcements={announcements} />
+              </div>
+            )}
+
+          {currentPage === "Pengumuman" &&
+            userRole === "Admin" &&
+            showCreatePengumuman && (
+              <PengumumanAdmin
+                onBack={() => setShowCreatePengumuman(false)}
+              />
+            )}
+
+          {currentPage === "Jadwal Sidang" &&
+            userRole === "Admin" &&
+            !selectedHearingEvent && <JadwalSidangAdminCalendar />}
+
+          {currentPage === "Jadwal Sidang Detail" && selectedHearingEvent && (
+            <JadwalSidangDetailPage
+              event={selectedHearingEvent}
+              onBack={() => {
+                setSelectedHearingEvent(null);
+                setCurrentPage("Jadwal Sidang");
+              }}
             />
           )}
+
+          {currentPage === "Proposal Detail" && editingProposal && (
+            <ProposalDetail
+              proposal={editingProposal}
+              onBack={handleBackToTugasAkhir}
+            />
+          )}
+
+          {currentPage === "Administrasi" &&
+            userRole === "Admin" && <Administrasi />}
+
+          {currentPage === "Alokasi Pembimbing" &&
+            userRole === "Admin" && <AlokasiPembimbing />}
+
+          {currentPage === "Pembimbingan Dosen" &&
+            userRole === "Admin" && <PembimbinganDosenAdmin />}
+
+          {currentPage === "Tugas Akhir Mahasiswa" &&
+            userRole === "Admin" && <TugasAkhirMahasiswa />}
+
+          {currentPage === "Rekapitulasi Nilai" &&
+            userRole === "Admin" && <RekapitulasiNilai />}
+
+          {currentPage === "Konfigurasi Prodi" &&
+            userRole === "Admin" && (
+              <KonfigurasiProdi onNavigate={handleNavigate} />
+            )}
+
+          {currentPage === "Konfigurasi Nilai" &&
+            userRole === "Admin" && (
+              <KonfigurasiNilai onNavigate={handleNavigate} />
+            )}
+
+          {currentPage === "Konfigurasi myITS Thesis" &&
+            userRole === "Admin" && (
+              <KonfigurasiMyITS onNavigate={handleNavigate} />
+            )}
+
+          {currentPage === "Konfigurasi Prasyarat" &&
+            userRole === "Admin" && (
+              <KonfigurasiPrasyarat onNavigate={handleNavigate} />
+            )}
+
+          {currentPage === "Konfigurasi Sidang" &&
+            userRole === "Admin" && (
+              <KonfigurasiSidang onNavigate={handleNavigate} />
+            )}
+
+          {currentPage === "Kelola Pengumuman" &&
+            userRole === "Admin" && (
+              <PengumumanAdminList onNavigate={handleNavigate} />
+            )}
+
+          {currentPage === "Buat Pengumuman Baru" &&
+            userRole === "Admin" && (
+              <PengumumanAdminEdit onNavigate={handleNavigate} />
+            )}
+
+          {currentPage === "Edit Pengumuman" &&
+            userRole === "Admin" && (
+              <PengumumanAdminEdit
+                onNavigate={handleNavigate}
+                announcementId={editingAnnouncementId}
+              />
+            )}
+
+          {currentPage === "Data Prodi" &&
+            userRole === "Admin" && (
+              <DataProdi onNavigate={handleNavigate} />
+            )}
         </div>
       </div>
       <Toaster />
     </div>
   );
-}
-
-interface TakenHearing {
-  id: number;
-  hearingId: number;
-  hearingName: string;
-  hearingType: "Proposal" | "Final";
-  proposalId: number;
-  proposalTitle: string;
-  status:
-    | "Menunggu Approval Sidang"
-    | "Menunggu Jadwal Sidang"
-    | "Menunggu Sidang"
-    | "Sidang Selesai"
-    | "Revisi"
-    | "Menunggu Approval Revisi";
-
-  // Approval sidang fields
-  supervisor1Approval?: "pending" | "approved" | "rejected";
-  supervisor2Approval?: "pending" | "approved" | "rejected";
-  adminApproval?: "pending" | "approved" | "rejected";
-  supervisor1ApprovalDate?: string;
-  supervisor2ApprovalDate?: string;
-  adminApprovalDate?: string;
-  approvalDeadline?: string;
-
-  date?: string;
-  time?: string;
-  location?: string;
-  onlineStatus?: "Online" | "Offline";
-  examiner1?: string;
-  examiner2?: string;
-  examiner3?: string;
-  examiner?: string;
-  proposalCategory?: string;
-  proposalAbstract?: string;
-  supervisor1?: string;
-  supervisor2?: string;
-
-  // Revision approval fields
-  examiner1RevisionApproval?: "pending" | "approved" | "rejected";
-  examiner2RevisionApproval?: "pending" | "approved" | "rejected";
-  examiner3RevisionApproval?: "pending" | "approved" | "rejected";
-  examiner1RevisionApprovalDate?: string;
-  examiner2RevisionApprovalDate?: string;
-  examiner3RevisionApprovalDate?: string;
-  revisionApprovalDeadline?: string;
-
-  revisionDeadline?: string;
-  revisionNotes?: string;
-  revisionNotesExaminer1?: string;
-  revisionNotesExaminer2?: string;
-  revisionNotesExaminer3?: string;
-  revisionFile?: File | null;
-  revisionFileName?: string;
-}
-
-interface Announcement {
-  id: number;
-  title: string;
-  category: "Penting" | "Info" | "Acara" | "Deadline" | "Sistem";
-  date: string;
-  content: string;
-  imageUrl: string;
-  isNew: boolean;
 }

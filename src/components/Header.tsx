@@ -3,16 +3,16 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
-  userRole: "Mahasiswa" | "Dosen";
-  onRoleSwitch: (role: "Mahasiswa" | "Dosen") => void;
+  userRole: "Mahasiswa" | "Dosen" | "Admin";
+  onRoleSwitch: (role: "Mahasiswa" | "Dosen" | "Admin") => void;
 }
 
 export function Header({ userRole, onRoleSwitch }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [pendingRole, setPendingRole] = useState<"Mahasiswa" | "Dosen" | null>(null);
+  const [pendingRole, setPendingRole] = useState<"Mahasiswa" | "Dosen" | "Admin" | null>(null);
 
-  const handleRoleClick = (role: "Mahasiswa" | "Dosen") => {
+  const handleRoleClick = (role: "Mahasiswa" | "Dosen" | "Admin") => {
     if (role !== userRole) {
       setPendingRole(role);
       setIsDropdownOpen(false);
@@ -116,6 +116,27 @@ export function Header({ userRole, onRoleSwitch }: HeaderProps) {
                             </svg>
                             <span>Dosen</span>
                             {userRole === "Dosen" && (
+                              <svg className="ml-auto w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => handleRoleClick("Admin")}
+                          className={`w-full px-4 py-2 text-left text-sm font-[Roboto] hover:bg-gray-50 transition-colors ${
+                            userRole === "Admin" ? "bg-blue-50 text-blue-600" : "text-gray-700"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <path d="M8 8C9.65685 8 11 6.65685 11 5C11 3.34315 9.65685 2 8 2C6.34315 2 5 3.34315 5 5C5 6.65685 6.34315 8 8 8Z" fill="currentColor"/>
+                              <path d="M8 9.5C5.23858 9.5 3 11.7386 3 14.5H13C13 11.7386 10.7614 9.5 8 9.5Z" fill="currentColor"/>
+                              <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                              <path d="M12 10.5V13.5M10.5 12H13.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+                            </svg>
+                            <span>Admin</span>
+                            {userRole === "Admin" && (
                               <svg className="ml-auto w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>

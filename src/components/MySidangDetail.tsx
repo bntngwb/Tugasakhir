@@ -53,23 +53,15 @@ interface TakenHearing {
 
 interface MySidangDetailProps {
   hearing: TakenHearing;
-  onBack: () => void;
+  onBack?: () => void;
   onCompleteProposalDefense?: (proposalId: number) => void;
-  onCompleteFinalDefense?: (proposalId: number) => void;
+  onCompleteFinalDefense?: (proposalId: number) => void; // <-- TAMBAHAN
   onUpdateHearingInfo?: (hearingId: number, info: Partial<TakenHearing>) => void;
   onFinishHearing?: (hearingId: number, notes: string, deadline: string) => void;
   onSubmitRevision?: (hearingId: number, file: File, fileName: string) => void;
 }
 
-export function MySidangDetail({
-  hearing,
-  onBack,
-  onCompleteProposalDefense,
-  onCompleteFinalDefense,
-  onUpdateHearingInfo,
-  onFinishHearing,
-  onSubmitRevision,
-}: MySidangDetailProps) {
+export function MySidangDetail({ hearing, onBack, onCompleteProposalDefense, onCompleteFinalDefense, onUpdateHearingInfo, onFinishHearing, onSubmitRevision }: MySidangDetailProps) {
   const [revisionFile, setRevisionFile] = useState<File | null>(null);
   
   // Parse Indonesian date format
@@ -112,14 +104,6 @@ export function MySidangDetail({
     if (onCompleteProposalDefense) {
       onCompleteProposalDefense(hearing.proposalId);
       toast.success("Sidang proposal selesai. Proposal telah dipindahkan ke Tugas Akhir Saya.");
-    }
-  };
-
-  // NEW: khusus sidang akhir → ubah status TA jadi “Tugas Akhir Telah Selesai”
-  const handleCompleteFinalDefense = () => {
-    if (onCompleteFinalDefense) {
-      onCompleteFinalDefense(hearing.proposalId);
-      toast.success("Sidang akhir selesai. Status tugas akhir diperbarui menjadi 'Tugas Akhir Telah Selesai'.");
     }
   };
 
@@ -323,9 +307,10 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
         {hearing.status === "Menunggu Approval Sidang" && (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <h2 className="text-gray-800 font-[Poppins] text-[18px] mb-4">Status Persetujuan Pendaftaran Sidang</h2>
-            <p className="text-sm text-gray-600 font-[Roboto] mb-2">
-              Pendaftaran sidang Anda memerlukan persetujuan dari Pembimbing 1, Pembimbing 2, dan Admin sebelum dapat dilanjutkan.
-            </p>
+    <p className="text-sm text-gray-600 font-[Roboto] mb-2">
+      Pendaftaran sidang Anda memerlukan persetujuan dari Pembimbing 1, Pembimbing 2, dan Kepala Lab sebelum dapat dilanjutkan.
+    </p>
+
             
             {/* Deadline Info */}
             {hearing.approvalDeadline && (
@@ -464,12 +449,12 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
                 </div>
               </div>
 
-              {/* Admin */}
+              {/* Kepala Lab */}
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <div className="text-center">
                   <User className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                  <h3 className="font-[Poppins] text-sm text-gray-800 mb-1">Admin</h3>
-                  <p className="text-xs text-gray-600 font-[Roboto] mb-3">Admin Sidang</p>
+                  <h3 className="font-[Poppins] text-sm text-gray-800 mb-1">Kepala Lab</h3>
+                  <p className="text-xs text-gray-600 font-[Roboto] mb-3">Kepala Laboratorium</p>
                   
                   <div className="flex flex-col items-center gap-2">
                     {hearing.adminApproval === "approved" ? (
@@ -517,7 +502,7 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
                               status: "Menunggu Jadwal Sidang"
                             } : {})
                           });
-                          toast.success("Admin telah menyetujui!");
+                          toast.success("Kepala Lab telah menyetujui!");
                           
                           // Check if all approved
                           if (hearing.supervisor1Approval === "approved" && hearing.supervisor2Approval === "approved") {
@@ -619,7 +604,7 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <h2 className="text-gray-800 font-[Poppins] text-[18px] mb-4">Status Persetujuan Revisi</h2>
             <p className="text-sm text-gray-600 font-[Roboto] mb-2">
-              File revisi Anda telah dikumpulkan dan menunggu persetujuan dari ketiga dosen penguji.
+      File revisi Anda telah dikumpulkan dan menunggu persetujuan dari Penguji 1, Penguji 2, dan Pembimbing 1.
             </p>
             
             {/* Deadline Info */}
@@ -649,130 +634,221 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
             )}
             
             {/* 3 Column Approval Layout for Examiners */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              {/* Penguji 1 */}
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div className="text-center">
-                  <User className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                  <h3 className="font-[Poppins] text-sm text-gray-800 mb-1">Penguji 1</h3>
-                  <p className="text-xs text-gray-600 font-[Roboto] mb-3">{hearing.examiner1 || "Dosen Penguji 1"}</p>
-                  
-                  <div className="flex flex-col items-center gap-2">
-                    {hearing.examiner1RevisionApproval === "approved" ? (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <span className="text-xs font-[Roboto] text-green-700 font-medium">Disetujui</span>
-                        {hearing.examiner1RevisionApprovalDate && (
-                          <span className="text-xs text-gray-500 font-[Roboto]">{hearing.examiner1RevisionApprovalDate}</span>
-                        )}
-                      </>
-                    ) : hearing.examiner1RevisionApproval === "rejected" ? (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                          <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </div>
-                        <span className="text-xs font-[Roboto] text-red-700 font-medium">Ditolak</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
-                          <Clock className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <span className="text-xs font-[Roboto] text-gray-500">Menunggu</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
+<div className="grid grid-cols-3 gap-4 mb-6">
+  {/* Penguji 1 */}
+  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+    <div className="text-center">
+      <User className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+      <h3 className="font-[Poppins] text-sm text-gray-800 mb-1">Penguji 1</h3>
+      <p className="text-xs text-gray-600 font-[Roboto] mb-3">
+        {hearing.examiner1 || "Dosen Penguji 1"}
+      </p>
 
-              {/* Penguji 2 */}
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div className="text-center">
-                  <User className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                  <h3 className="font-[Poppins] text-sm text-gray-800 mb-1">Penguji 2</h3>
-                  <p className="text-xs text-gray-600 font-[Roboto] mb-3">{hearing.examiner2 || "Dosen Penguji 2"}</p>
-                  
-                  <div className="flex flex-col items-center gap-2">
-                    {hearing.examiner2RevisionApproval === "approved" ? (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <span className="text-xs font-[Roboto] text-green-700 font-medium">Disetujui</span>
-                        {hearing.examiner2RevisionApprovalDate && (
-                          <span className="text-xs text-gray-500 font-[Roboto]">{hearing.examiner2RevisionApprovalDate}</span>
-                        )}
-                      </>
-                    ) : hearing.examiner2RevisionApproval === "rejected" ? (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justifyCenter">
-                          <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </div>
-                        <span className="text-xs font-[Roboto] text-red-700 font-medium">Ditolak</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
-                          <Clock className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <span className="text-xs font-[Roboto] text-gray-500">Menunggu</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Penguji 3 */}
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div className="text-center">
-                  <User className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                  <h3 className="font-[Poppins] text-sm text-gray-800 mb-1">Penguji 3</h3>
-                  <p className="text-xs text-gray-600 font-[Roboto] mb-3">{hearing.examiner3 || "Dosen Penguji 3"}</p>
-                  
-                  <div className="flex flex-col items-center gap-2">
-                    {hearing.examiner3RevisionApproval === "approved" ? (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <span className="text-xs font-[Roboto] text-green-700 font-medium">Disetujui</span>
-                        {hearing.examiner3RevisionApprovalDate && (
-                          <span className="text-xs text-gray-500 font-[Roboto]">{hearing.examiner3RevisionApprovalDate}</span>
-                        )}
-                      </>
-                    ) : hearing.examiner3RevisionApproval === "rejected" ? (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                          <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </div>
-                        <span className="text-xs font-[Roboto] text-red-700 font-medium">Ditolak</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
-                          <Clock className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <span className="text-xs font-[Roboto] text-gray-500">Menunggu</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
+      <div className="flex flex-col items-center gap-2">
+        {hearing.examiner1RevisionApproval === "approved" ? (
+          <>
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
             </div>
+            <span className="text-xs font-[Roboto] text-green-700 font-medium">
+              Disetujui
+            </span>
+            {hearing.examiner1RevisionApprovalDate && (
+              <span className="text-xs text-gray-500 font-[Roboto]">
+                {hearing.examiner1RevisionApprovalDate}
+              </span>
+            )}
+          </>
+        ) : hearing.examiner1RevisionApproval === "rejected" ? (
+          <>
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </div>
+            <span className="text-xs font-[Roboto] text-red-700 font-medium">
+              Ditolak
+            </span>
+          </>
+        ) : (
+          <>
+            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+              <Clock className="w-8 h-8 text-gray-400" />
+            </div>
+            <span className="text-xs font-[Roboto] text-gray-500">
+              Menunggu
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+
+  {/* Penguji 2 */}
+  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+    <div className="text-center">
+      <User className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+      <h3 className="font-[Poppins] text-sm text-gray-800 mb-1">Penguji 2</h3>
+      <p className="text-xs text-gray-600 font-[Roboto] mb-3">
+        {hearing.examiner2 || "Dosen Penguji 2"}
+      </p>
+
+      <div className="flex flex-col items-center gap-2">
+        {hearing.examiner2RevisionApproval === "approved" ? (
+          <>
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <span className="text-xs font-[Roboto] text-green-700 font-medium">
+              Disetujui
+            </span>
+            {hearing.examiner2RevisionApprovalDate && (
+              <span className="text-xs text-gray-500 font-[Roboto]">
+                {hearing.examiner2RevisionApprovalDate}
+              </span>
+            )}
+          </>
+        ) : hearing.examiner2RevisionApproval === "rejected" ? (
+          <>
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </div>
+            <span className="text-xs font-[Roboto] text-red-700 font-medium">
+              Ditolak
+            </span>
+          </>
+        ) : (
+          <>
+            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+              <Clock className="w-8 h-8 text-gray-400" />
+            </div>
+            <span className="text-xs font-[Roboto] text-gray-500">
+              Menunggu
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+
+  {/* Pembimbing 1 */}
+  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+    <div className="text-center">
+      <User className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+      <h3 className="font-[Poppins] text-sm text-gray-800 mb-1">Pembimbing 1</h3>
+      <p className="text-xs text-gray-600 font-[Roboto] mb-3">
+        {hearing.supervisor1 || "Dosen Pembimbing 1"}
+      </p>
+
+      <div className="flex flex-col items-center gap-2">
+        {hearing.examiner3RevisionApproval === "approved" ? (
+          <>
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <span className="text-xs font-[Roboto] text-green-700 font-medium">
+              Disetujui
+            </span>
+            {hearing.examiner3RevisionApprovalDate && (
+              <span className="text-xs text-gray-500 font-[Roboto]">
+                {hearing.examiner3RevisionApprovalDate}
+              </span>
+            )}
+          </>
+        ) : hearing.examiner3RevisionApproval === "rejected" ? (
+          <>
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </div>
+            <span className="text-xs font-[Roboto] text-red-700 font-medium">
+              Ditolak
+            </span>
+          </>
+        ) : (
+          <>
+            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+              <Clock className="w-8 h-8 text-gray-400" />
+            </div>
+            <span className="text-xs font-[Roboto] text-gray-500">
+              Menunggu
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
+
 
             {/* Prototype Button to Simulate Revision Approval */}
             <div className="border-t border-gray-200 pt-4">
@@ -780,45 +856,49 @@ Harap kumpulkan dokumen revisi sebelum deadline yang ditentukan.`;
                 <div className="flex-1">
                   <h3 className="text-sm font-[Poppins] text-gray-800 mb-1">Simulasi Approval Revisi</h3>
                   <p className="text-xs text-gray-500 font-[Roboto]">
-                    Klik tombol untuk simulasi approval revisi dari semua penguji dan ubah status menjadi "Sidang Selesai".
+  Klik tombol untuk simulasi approval revisi dari Penguji 1, Penguji 2, dan Pembimbing 1 lalu ubah status menjadi "Sidang Selesai".
                   </p>
                 </div>
                 <button
-                  onClick={() => {
-                    if (onUpdateHearingInfo) {
-                      const today = new Date();
-                      onUpdateHearingInfo(hearing.id, {
-                        examiner1RevisionApproval: "approved",
-                        examiner2RevisionApproval: "approved",
-                        examiner3RevisionApproval: "approved",
-                        examiner1RevisionApprovalDate: today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
-                        examiner2RevisionApprovalDate: today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
-                        examiner3RevisionApprovalDate: today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
-                        status: "Sidang Selesai"
-                      });
-                      
-                      // Jika ini sidang proposal → lanjut ke tahap TA
-// Jika ini sidang proposal → pindah ke tahap Tugas Akhir
-if (hearing.hearingType === "Proposal" && onCompleteProposalDefense) {
-  onCompleteProposalDefense(hearing.proposalId);
-  toast.success("Semua revisi telah disetujui! Sidang proposal selesai. Proposal telah dipindahkan ke Tugas Akhir Saya.");
-}
-// Jika ini sidang akhir → tandai Tugas Akhir selesai
-else if (hearing.hearingType === "Final" && onCompleteFinalDefense) {
-  onCompleteFinalDefense(hearing.proposalId);
-  toast.success("Selamat! Sidang akhir selesai dan tugas akhir Anda dinyatakan selesai.");
-}
-// Fallback
-else {
-  toast.success("Semua revisi telah disetujui! Sidang telah selesai.");
-}
-                    }
-                  }}
-                  className="ml-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-[Inter] transition-colors flex items-center gap-2 whitespace-nowrap"
-                >
-                  <span className="text-xs bg-green-700 px-2 py-0.5 rounded">PROTOTYPE</span>
-                  Approve Semua Revisi
-                </button>
+  onClick={() => {
+    if (onUpdateHearingInfo) {
+      const today = new Date();
+      onUpdateHearingInfo(hearing.id, {
+        examiner1RevisionApproval: "approved",
+        examiner2RevisionApproval: "approved",
+        examiner3RevisionApproval: "approved",
+        examiner1RevisionApprovalDate: today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+        examiner2RevisionApprovalDate: today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+        examiner3RevisionApprovalDate: today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+        status: "Sidang Selesai",
+      });
+
+      // Jika ini sidang proposal -> pindah ke tahap final
+      if (hearing.hearingType === "Proposal" && onCompleteProposalDefense) {
+        onCompleteProposalDefense(hearing.proposalId);
+        toast.success(
+          "Semua revisi telah disetujui! Sidang proposal selesai. Proposal telah dipindahkan ke Tugas Akhir Saya."
+        );
+      }
+      // Jika ini sidang akhir -> tandai TA selesai
+      else if (hearing.hearingType === "Final" && onCompleteFinalDefense) {
+        onCompleteFinalDefense(hearing.proposalId);
+        toast.success(
+          "Semua revisi telah disetujui! Sidang akhir selesai. Status tugas akhir telah diperbarui menjadi selesai."
+        );
+      } 
+      // fallback
+      else {
+        toast.success("Semua revisi telah disetujui! Sidang telah selesai.");
+      }
+    }
+  }}
+  className="ml-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-[Inter] transition-colors flex items-center gap-2 whitespace-nowrap"
+>
+  <span className="text-xs bg-green-700 px-2 py-0.5 rounded">PROTOTYPE</span>
+  Approve Semua Revisi
+</button>
+
               </div>
             </div>
           </div>
@@ -850,7 +930,7 @@ else {
 
         {/* Session Information */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-          <div className="flex itemsCenter gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-4">
             <FileText className="w-5 h-5 text-blue-600" />
             <h2 className="text-gray-800 font-[Poppins] text-[18px]">Informasi Sidang</h2>
           </div>
@@ -1241,7 +1321,7 @@ else {
                       <div className="flex-1">
                         <h3 className="text-gray-800 font-[Poppins] font-semibold mb-1">Selamat!</h3>
                         <p className="text-sm text-gray-600 font-[Roboto]">
-                          Anda telah menyelesaikan seluruh proses tugas akhir. Status tugas akhir Anda sekarang adalah <strong>"Tugas Akhir Telah Selesai"</strong>.
+                          Anda telah menyelesaikan seluruh proses tugas akhir. Selamat atas pencapaian Anda!
                         </p>
                       </div>
                     </div>
