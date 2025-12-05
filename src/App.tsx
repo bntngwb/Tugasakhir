@@ -99,7 +99,6 @@ interface Proposal {
   adminApprovalDate?: string;
   approvalDeadline?: string;
 }
-:contentReference[oaicite:0]{index=0}
 
 interface Hearing {
   id: number;
@@ -408,8 +407,6 @@ const newProposal: Proposal = {
   supervisor2ApprovalDate: editingProposal?.supervisor2ApprovalDate,
   adminApprovalDate: editingProposal?.adminApprovalDate,
 };
-:contentReference[oaicite:1]{index=1}
-
 
     if (editingProposal) {
       // Update existing proposal
