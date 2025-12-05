@@ -30,9 +30,16 @@ interface Student {
   lab: string;
   pembimbing1: string;
   pembimbing2: string;
-  tahap: string;
+  tahap: "Proposal" | "Tugas Akhir"; // pipeline jenis
   progress: number;
-  status: string;
+  status:
+    | "Dalam Pengerjaan"
+    | "Menunggu Approval"
+    | "Daftar Sidang"
+    | "Siap Sidang"
+    | "Sidang"
+    | "Pengerjaan Revisi"
+    | "Selesai";
   jumlahBimbingan: number;
   needsApproval: boolean;
 }
@@ -75,26 +82,28 @@ export function BimbinganAktif({
   );
 
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
-  // ...lanjutkan kode kamu seperti sebelumnya
 
-  // Mock data for students
-  const students: Student[] = [
+  // 🔹 Students pakai state, agar bisa ditambah & di-update otomatis
+  const [students, setStudents] = useState<Student[]>([
     {
       id: 1,
       nrp: "5025223002",
       nama: "Andi Pratama",
       angkatan: "2020",
       jenjang: "S1",
-      judulTA: "RANCANG BANGUN SISTEM MONITORING BIMBINGAN TUGAS AKHIR BERBASIS WEB",
-      abstrak: "Penelitian ini bertujuan untuk merancang dan membangun sistem monitoring bimbingan tugas akhir berbasis web guna memudahkan dosen dan mahasiswa dalam memantau progress bimbingan. Sistem menyediakan fitur pencatatan pertemuan, status tahapan tugas akhir, serta riwayat revisi secara terstruktur.",
+      judulTA:
+        "RANCANG BANGUN SISTEM MONITORING BIMBINGAN TUGAS AKHIR BERBASIS WEB",
+      abstrak:
+        "Penelitian ini bertujuan untuk merancang dan membangun sistem monitoring bimbingan tugas akhir berbasis web guna memudahkan dosen dan mahasiswa dalam memantau progress bimbingan.",
       lab: "Laboratorium Rekayasa Perangkat Lunak",
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
-      tahap: "Revisi Proposal",
-      progress: 65,
-      status: "Dalam Pengerjaan",
+      tahap: "Proposal",
+      // contoh: sudah selesai menulis, tinggal minta persetujuan dosen → Menunggu Approval
+      status: "Menunggu Approval",
+      progress: 60,
       jumlahBimbingan: 8,
-      needsApproval: true
+      needsApproval: true,
     },
     {
       id: 2,
@@ -103,15 +112,16 @@ export function BimbinganAktif({
       angkatan: "2020",
       jenjang: "S1",
       judulTA: "Aplikasi Mobile untuk Monitoring Kesehatan Lansia",
-      abstrak: "Aplikasi mobile yang dirancang untuk memudahkan monitoring kesehatan lansia dengan fitur pengingat minum obat, pencatatan tekanan darah, dan konsultasi online dengan dokter.",
+      abstrak:
+        "Aplikasi mobile yang dirancang untuk memudahkan monitoring kesehatan lansia dengan fitur pengingat minum obat, pencatatan tekanan darah, dan konsultasi online.",
       lab: "Laboratorium Sistem Informasi",
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Proposal",
-      progress: 40,
-      status: "Perlu Revisi",
+      status: "Dalam Pengerjaan",
+      progress: 35,
       jumlahBimbingan: 5,
-      needsApproval: true
+      needsApproval: false,
     },
     {
       id: 3,
@@ -120,15 +130,17 @@ export function BimbinganAktif({
       angkatan: "2020",
       jenjang: "S2",
       judulTA: "Analisis Sentimen Media Sosial Menggunakan Deep Learning",
-      abstrak: "Penelitian ini menggunakan teknik deep learning untuk menganalisis sentimen pada media sosial dengan akurasi tinggi menggunakan arsitektur LSTM dan BERT.",
+      abstrak:
+        "Penelitian ini menggunakan teknik deep learning untuk menganalisis sentimen pada media sosial dengan akurasi tinggi menggunakan arsitektur LSTM dan BERT.",
       lab: "Laboratorium Kecerdasan Buatan",
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Tugas Akhir",
-      progress: 85,
-      status: "Siap Sidang",
+      // contoh: sudah daftar sidang, masih butuh approval admin → Daftar Sidang + needsApproval true
+      status: "Daftar Sidang",
+      progress: 75,
       jumlahBimbingan: 12,
-      needsApproval: false
+      needsApproval: true,
     },
     {
       id: 4,
@@ -137,15 +149,16 @@ export function BimbinganAktif({
       angkatan: "2020",
       jenjang: "S1",
       judulTA: "Implementasi Machine Learning untuk Deteksi Penyakit Tanaman",
-      abstrak: "Sistem deteksi penyakit tanaman menggunakan convolutional neural network (CNN) untuk membantu petani dalam diagnosis dini penyakit tanaman.",
+      abstrak:
+        "Sistem deteksi penyakit tanaman menggunakan convolutional neural network (CNN) untuk membantu petani dalam diagnosis dini penyakit tanaman.",
       lab: "Laboratorium Kecerdasan Buatan",
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Proposal",
+      status: "Siap Sidang",
       progress: 90,
-      status: "Menunggu Sidang",
       jumlahBimbingan: 6,
-      needsApproval: false
+      needsApproval: false,
     },
     {
       id: 5,
@@ -154,17 +167,18 @@ export function BimbinganAktif({
       angkatan: "2020",
       jenjang: "S2",
       judulTA: "Optimasi Algoritma Pencarian dengan Genetic Algorithm",
-      abstrak: "Penelitian optimasi algoritma pencarian menggunakan genetic algorithm untuk meningkatkan efisiensi pencarian pada dataset besar.",
+      abstrak:
+        "Penelitian optimasi algoritma pencarian menggunakan genetic algorithm untuk meningkatkan efisiensi pencarian pada dataset besar.",
       lab: "Laboratorium Sistem Informasi",
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Tugas Akhir",
-      progress: 50,
-      status: "Dalam Pengerjaan",
+      status: "Pengerjaan Revisi",
+      progress: 85,
       jumlahBimbingan: 9,
-      needsApproval: false
-    }
-  ];
+      needsApproval: false,
+    },
+  ]);
 
   // Mock data ajuan topik
   const [topicProposals, setTopicProposals] = useState<TopicProposal[]>([
@@ -174,17 +188,20 @@ export function BimbinganAktif({
       nrp: "5025201030",
       angkatan: "2020",
       judul: "Sistem Informasi Perpustakaan Digital Berbasis Cloud",
-      abstrak: "Sistem perpustakaan digital yang menggunakan teknologi cloud computing untuk penyimpanan dan akses buku digital dengan fitur pencarian cerdas.",
-      tanggalAjuan: "2024-12-01"
+      abstrak:
+        "Sistem perpustakaan digital yang menggunakan teknologi cloud computing untuk penyimpanan dan akses buku digital dengan fitur pencarian cerdas.",
+      tanggalAjuan: "2024-12-01",
     },
     {
       id: 2,
       nama: "Farah Nabila",
       nrp: "5025201031",
       angkatan: "2020",
-      judul: "Aplikasi E-Learning dengan Gamifikasi untuk Meningkatkan Motivasi Belajar",
-      abstrak: "Platform e-learning yang menerapkan konsep gamifikasi seperti poin, badge, dan leaderboard untuk meningkatkan motivasi dan engagement siswa.",
-      tanggalAjuan: "2024-12-02"
+      judul:
+        "Aplikasi E-Learning dengan Gamifikasi untuk Meningkatkan Motivasi Belajar",
+      abstrak:
+        "Platform e-learning yang menerapkan konsep gamifikasi seperti poin, badge, dan leaderboard untuk meningkatkan motivasi dan engagement siswa.",
+      tanggalAjuan: "2024-12-02",
     },
     {
       id: 3,
@@ -192,63 +209,150 @@ export function BimbinganAktif({
       nrp: "5025201032",
       angkatan: "2020",
       judul: "Chatbot Customer Service Menggunakan Natural Language Processing",
-      abstrak: "Chatbot cerdas yang menggunakan NLP dan machine learning untuk memberikan layanan customer service otomatis dengan tingkat akurasi tinggi.",
-      tanggalAjuan: "2024-12-03"
-    }
+      abstrak:
+        "Chatbot cerdas yang menggunakan NLP dan machine learning untuk memberikan layanan customer service otomatis dengan tingkat akurasi tinggi.",
+      tanggalAjuan: "2024-12-03",
+    },
   ]);
 
+  // 🔹 Helper: buat Student baru dari TopicProposal dengan status (Proposal) (Dalam Pengerjaan)
+  const createStudentFromTopic = (topic: TopicProposal, id: number): Student => {
+    return {
+      id,
+      nrp: topic.nrp,
+      nama: topic.nama,
+      angkatan: topic.angkatan,
+      // Karena di TopicProposal tidak ada jenjang, kita asumsi default S1
+      jenjang: "S1",
+      judulTA: topic.judul,
+      abstrak: topic.abstrak,
+      lab: "Belum ditentukan",
+      pembimbing1: "Pembimbing 1 (Anda)",
+      pembimbing2: "Pembimbing 2 (Rekan)",
+      // start di pipeline proposal: Dalam Pengerjaan (belum perlu approval)
+      tahap: "Proposal",
+      status: "Dalam Pengerjaan",
+      progress: 0,
+      jumlahBimbingan: 0,
+      needsApproval: false,
+    };
+  };
+
+  // 🔹 Timeline steps (sama untuk Proposal & TA, hanya konteks yang beda)
+const TIMELINE_STEPS: Student["status"][] = [
+  "Dalam Pengerjaan",
+  "Menunggu Approval",
+  "Siap Sidang",
+  "Daftar Sidang",
+  "Sidang",
+  "Pengerjaan Revisi",
+  "Selesai",
+];
+
+
+  // 🔹 Helper: logika tahap & status berikutnya ketika dosen Approve bimbingan aktif
+  // proses perlu approval hanya di "Menunggu Approval" dan "Daftar Sidang"
+const getNextStageAfterApproval = (student: Student): Student => {
+  let { tahap, status, progress } = student;
+
+  if (status === "Menunggu Approval") {
+    // setelah dosen setuju → siap sidang (belum daftar)
+    return {
+      ...student,
+      status: "Siap Sidang",
+      needsApproval: false,
+      progress: progress < 75 ? 75 : progress,
+    };
+  }
+
+  if (status === "Daftar Sidang") {
+    // setelah admin/jurusan setuju → status menjadi Sidang (terjadwal)
+    return {
+      ...student,
+      status: "Sidang",
+      needsApproval: false,
+      progress: progress < 90 ? 90 : progress,
+    };
+  }
+
+  // fallback: kalau di-approve di status lain, hanya matikan flag approval
+  return {
+    ...student,
+    tahap,
+    status,
+    progress,
+    needsApproval: false,
+  };
+};
+
+
   // Filter students berdasarkan filterMode
-  let filteredStudents = students.filter(student => {
-    const matchesJenjang = selectedJenjang === "Semua" || student.jenjang === selectedJenjang;
-    const matchesStatus = selectedStatus === "Semua" || student.status === selectedStatus;
-    const matchesSearch = student.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         student.nrp.includes(searchQuery) ||
-                         student.judulTA.toLowerCase().includes(searchQuery.toLowerCase());
-    
+  let filteredStudents = students.filter((student) => {
+    const matchesJenjang =
+      selectedJenjang === "Semua" || student.jenjang === selectedJenjang;
+    const matchesStatus =
+      selectedStatus === "Semua" || student.status === selectedStatus;
+    const matchesSearch =
+      student.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.nrp.includes(searchQuery) ||
+      student.judulTA.toLowerCase().includes(searchQuery.toLowerCase());
+
     let matchesFilter = true;
     if (filterMode === "approval") {
       matchesFilter = student.needsApproval;
-    } else if (filterMode === "ready") {
-      matchesFilter = student.status === "Siap Sidang" || student.status === "Menunggu Sidang";
-    }
-    
+} else if (filterMode === "ready") {
+  // Siap Sidang, Daftar Sidang, dan Sidang dianggap fase sidang
+  matchesFilter =
+    student.status === "Siap Sidang" ||
+    student.status === "Daftar Sidang" ||
+    student.status === "Sidang";
+}
+
+
     return matchesJenjang && matchesStatus && matchesSearch && matchesFilter;
   });
 
-  const getTahapColor = (tahap: string) => {
-    if (tahap.includes("Proposal")) {
+  const getTahapColor = (tahap: Student["tahap"]) => {
+    if (tahap === "Proposal") {
       return "bg-blue-50 border-blue-200 text-blue-700";
-    } else if (tahap.includes("Tugas Akhir")) {
+    } else if (tahap === "Tugas Akhir") {
       return "bg-green-50 border-green-200 text-green-700";
-    } else if (tahap.includes("Revisi")) {
-      return "bg-orange-50 border-orange-200 text-orange-700";
     }
     return "bg-gray-50 border-gray-200 text-gray-700";
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: Student["status"]) => {
     switch (status) {
       case "Dalam Pengerjaan":
         return "bg-blue-100 text-blue-700 border-blue-200";
-      case "Perlu Revisi":
+      case "Menunggu Approval":
         return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      case "Daftar Sidang":
+        return "bg-purple-100 text-purple-700 border-purple-200";
       case "Siap Sidang":
         return "bg-green-100 text-green-700 border-green-200";
-      case "Menunggu Sidang":
-        return "bg-purple-100 text-purple-700 border-purple-200";
+      case "Sidang":
+        return "bg-indigo-100 text-indigo-700 border-indigo-200";
+      case "Pengerjaan Revisi":
+        return "bg-orange-100 text-orange-700 border-orange-200";
+      case "Selesai":
+        return "bg-emerald-100 text-emerald-700 border-emerald-200";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: Student["status"]) => {
     switch (status) {
       case "Dalam Pengerjaan":
+      case "Pengerjaan Revisi":
         return <Clock className="w-4 h-4" />;
-      case "Perlu Revisi":
+      case "Menunggu Approval":
+      case "Daftar Sidang":
         return <AlertCircle className="w-4 h-4" />;
       case "Siap Sidang":
-      case "Menunggu Sidang":
+      case "Sidang":
+      case "Selesai":
         return <CheckCircle2 className="w-4 h-4" />;
       default:
         return <FileText className="w-4 h-4" />;
@@ -260,25 +364,63 @@ export function BimbinganAktif({
     setShowDetailModal(true);
   };
 
+  // 🔹 Batch approval usulan topik → tambah ke list mahasiswa + update total mahasiswa
   const handleApproveTopics = () => {
     if (selectedTopics.length === 0) {
       toast.error("Pilih minimal satu topik untuk disetujui");
       return;
     }
 
-    setTopicProposals(topicProposals.filter(t => !selectedTopics.includes(t.id)));
-    toast.success(`${selectedTopics.length} topik berhasil disetujui`);
+    const topicsToApprove = topicProposals.filter((t) =>
+      selectedTopics.includes(t.id)
+    );
+
+    if (topicsToApprove.length === 0) {
+      toast.error("Tidak ada topik yang ditemukan untuk disetujui");
+      return;
+    }
+
+    const baseId = Date.now();
+    const newStudentsFromTopics = topicsToApprove.map((topic, index) =>
+      createStudentFromTopic(topic, baseId + index)
+    );
+
+    // Tambahkan mahasiswa baru ke list bimbingan aktif
+    setStudents((prev) => [...prev, ...newStudentsFromTopics]);
+
+    // Hapus dari list ajuan topik
+    setTopicProposals((prev) =>
+      prev.filter((t) => !selectedTopics.includes(t.id))
+    );
+
+    toast.success(
+      `${selectedTopics.length} topik berhasil disetujui dan ditambahkan ke daftar bimbingan (Proposal - Dalam Pengerjaan)`
+    );
     setSelectedTopics([]);
   };
 
+  // 🔹 Single approval usulan topik → tambah satu mahasiswa baru
   const handleApproveSingle = (id: number) => {
-    setTopicProposals(topicProposals.filter(t => t.id !== id));
-    toast.success("Topik berhasil disetujui");
+    const topic = topicProposals.find((t) => t.id === id);
+    if (!topic) {
+      toast.error("Topik tidak ditemukan");
+      return;
+    }
+
+    const newId = Date.now();
+    const newStudent = createStudentFromTopic(topic, newId);
+
+    setStudents((prev) => [...prev, newStudent]);
+    setTopicProposals((prev) => prev.filter((t) => t.id !== id));
+
+    toast.success(
+      "Topik berhasil disetujui dan ditambahkan ke daftar bimbingan (Proposal - Dalam Pengerjaan)"
+    );
   };
 
   const toggleSelectTopic = (id: number) => {
     if (selectedTopics.includes(id)) {
-      setSelectedTopics(selectedTopics.filter(t => t !== id));
+      setSelectedTopics(selectedTopics.filter((t) => t !== id));
     } else {
       setSelectedTopics([...selectedTopics, id]);
     }
@@ -288,7 +430,7 @@ export function BimbinganAktif({
     if (selectedTopics.length === topicProposals.length) {
       setSelectedTopics([]);
     } else {
-      setSelectedTopics(topicProposals.map(t => t.id));
+      setSelectedTopics(topicProposals.map((t) => t.id));
     }
   };
 
@@ -299,7 +441,7 @@ export function BimbinganAktif({
 
   const handleSelectStudent = (id: number) => {
     if (selectedStudents.includes(id)) {
-      setSelectedStudents(selectedStudents.filter(s => s !== id));
+      setSelectedStudents(selectedStudents.filter((s) => s !== id));
     } else {
       setSelectedStudents([...selectedStudents, id]);
     }
@@ -309,26 +451,69 @@ export function BimbinganAktif({
     if (selectedStudents.length === filteredStudents.length) {
       setSelectedStudents([]);
     } else {
-      setSelectedStudents(filteredStudents.map(s => s.id));
+      setSelectedStudents(filteredStudents.map((s) => s.id));
     }
   };
 
+  // 🔹 Batch approval di section "Perlu Approval" (Bimbingan Aktif)
   const handleBatchApproval = () => {
     if (selectedStudents.length === 0) {
       toast.error("Pilih minimal satu mahasiswa untuk disetujui");
       return;
     }
-    toast.success(`${selectedStudents.length} mahasiswa berhasil disetujui`);
+
+    const approvedCount = selectedStudents.length;
+
+    setStudents((prev) =>
+      prev.map((s) =>
+        selectedStudents.includes(s.id) ? getNextStageAfterApproval(s) : s
+      )
+    );
+
     setSelectedStudents([]);
+    toast.success(
+      `${approvedCount} mahasiswa berhasil disetujui dan dipindahkan ke tahap selanjutnya`
+    );
   };
 
+  // 🔹 Single approval dari dalam modal detail mahasiswa
   const handleApproveStudent = (studentId: number) => {
-    toast.success("Mahasiswa berhasil disetujui");
-    setShowDetailModal(false);
+    let updatedStudent: Student | null = null;
+
+    setStudents((prev) => {
+      const next = prev.map((s) => {
+        if (s.id === studentId) {
+          const updated = getNextStageAfterApproval(s);
+          updatedStudent = updated;
+          return updated;
+        }
+        return s;
+      });
+      return next;
+    });
+
+    // Update juga state selectedStudent supaya detail & timeline langsung berubah
+    if (updatedStudent) {
+      setSelectedStudent(updatedStudent);
+    }
+
+    // Hapus dari selection batch jika ada
+    setSelectedStudents((prev) => prev.filter((id) => id !== studentId));
+
+    toast.success(
+      "Mahasiswa berhasil disetujui dan dipindahkan ke tahap selanjutnya"
+    );
+    // Modal tidak ditutup otomatis, supaya dosen bisa lihat perubahan detail & timeline
   };
 
-  const needsApprovalCount = students.filter(s => s.needsApproval).length;
-  const readyForSidangCount = students.filter(s => s.status === "Siap Sidang" || s.status === "Menunggu Sidang").length;
+  const needsApprovalCount = students.filter((s) => s.needsApproval).length;
+const readyForSidangCount = students.filter(
+  (s) =>
+    s.status === "Siap Sidang" ||
+    s.status === "Daftar Sidang" ||
+    s.status === "Sidang"
+).length;
+
 
   return (
     <main className="flex-1 p-6 bg-[#f5f5f5]">
@@ -336,23 +521,29 @@ export function BimbinganAktif({
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-gray-800 text-2xl font-[Poppins] font-bold">Bimbingan Aktif</h1>
-            <button 
-              onClick={() => setIsGuideModalOpen(true)} 
+            <h1 className="text-gray-800 text-2xl font-[Poppins] font-bold">
+              Bimbingan Aktif
+            </h1>
+            <button
+              onClick={() => setIsGuideModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
             >
               <BookOpen className="w-4 h-4" />
               <span className="font-[Poppins]">Panduan Penggunaan</span>
             </button>
           </div>
-          <p className="text-gray-500 font-[Roboto]">Kelola mahasiswa bimbingan Anda</p>
+          <p className="text-gray-500 font-[Roboto]">
+            Kelola mahasiswa bimbingan Anda
+          </p>
         </div>
 
         {/* Ajuan Topik Section */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <h2 className="text-gray-800 font-[Poppins] text-lg">Ajuan Topik</h2>
+              <h2 className="text-gray-800 font-[Poppins] text-lg">
+                Ajuan Topik
+              </h2>
               {topicProposals.length > 0 && (
                 <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-[Roboto] font-semibold">
                   {topicProposals.length}
@@ -380,7 +571,9 @@ export function BimbinganAktif({
                   <FileText className="w-5 h-5 text-orange-600" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-gray-800 font-[Poppins]">Usulan Topik Menunggu Persetujuan</h3>
+                  <h3 className="text-gray-800 font-[Poppins]">
+                    Usulan Topik Menunggu Persetujuan
+                  </h3>
                   <p className="text-sm text-gray-600 font-[Roboto]">
                     {topicProposals.length} usulan topik perlu direview
                   </p>
@@ -406,14 +599,18 @@ export function BimbinganAktif({
                     {topicProposals.length === 0 ? (
                       <div className="text-center py-8">
                         <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500 font-[Roboto]">Tidak ada usulan topik</p>
+                        <p className="text-gray-500 font-[Roboto]">
+                          Tidak ada usulan topik
+                        </p>
                       </div>
                     ) : (
                       <>
                         <div className="mb-4 flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg">
                           <input
                             type="checkbox"
-                            checked={selectedTopics.length === topicProposals.length}
+                            checked={
+                              selectedTopics.length === topicProposals.length
+                            }
                             onChange={toggleSelectAll}
                             className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                           />
@@ -442,7 +639,8 @@ export function BimbinganAktif({
                                         {topic.judul}
                                       </h4>
                                       <p className="text-sm text-gray-600 font-[Roboto]">
-                                        {topic.nama} • {topic.nrp} • Angkatan {topic.angkatan}
+                                        {topic.nama} • {topic.nrp} • Angkatan{" "}
+                                        {topic.angkatan}
                                       </p>
                                     </div>
                                   </div>
@@ -451,18 +649,25 @@ export function BimbinganAktif({
                                   </p>
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs text-gray-500 font-[Roboto]">
-                                      Diajukan: {new Date(topic.tanggalAjuan).toLocaleDateString('id-ID')}
+                                      Diajukan:{" "}
+                                      {new Date(
+                                        topic.tanggalAjuan
+                                      ).toLocaleDateString("id-ID")}
                                     </span>
                                     <div className="flex items-center gap-2">
                                       <button
-                                        onClick={() => handleViewTopicDetail(topic)}
+                                        onClick={() =>
+                                          handleViewTopicDetail(topic)
+                                        }
                                         className="px-3 py-1.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-[Roboto] text-sm flex items-center gap-1"
                                       >
                                         <Eye className="w-3.5 h-3.5" />
                                         Lihat
                                       </button>
                                       <button
-                                        onClick={() => handleApproveSingle(topic.id)}
+                                        onClick={() =>
+                                          handleApproveSingle(topic.id)
+                                        }
                                         className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-[Roboto] text-sm flex items-center gap-1"
                                       >
                                         <Check className="w-3.5 h-3.5" />
@@ -486,21 +691,23 @@ export function BimbinganAktif({
 
         {/* Statistics - dengan onClick untuk filter */}
         <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <div 
-            className="bg-white rounded-lg border border-gray-200 p-4 cursor-default"
-          >
+          <div className="bg-white rounded-lg border border-gray-200 p-4 cursor-default">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
                 <Users className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-xs text-gray-600 font-[Roboto]">Total Mahasiswa</p>
-                <p className="text-2xl text-gray-800 font-[Poppins]">{students.length}</p>
+                <p className="text-xs text-gray-600 font-[Roboto]">
+                  Total Mahasiswa
+                </p>
+                <p className="text-2xl text-gray-800 font-[Poppins]">
+                  {students.length}
+                </p>
               </div>
             </div>
           </div>
-          
-          <div 
+
+          <div
             onClick={() => {
               if (filterMode === "approval") {
                 setFilterMode("all");
@@ -511,8 +718,8 @@ export function BimbinganAktif({
               }
             }}
             className={`rounded-lg border p-4 cursor-pointer transition-all ${
-              filterMode === "approval" 
-                ? "bg-orange-50 border-orange-300 shadow-md" 
+              filterMode === "approval"
+                ? "bg-orange-50 border-orange-300 shadow-md"
                 : "bg-white border-gray-200 hover:shadow-md"
             }`}
           >
@@ -521,13 +728,17 @@ export function BimbinganAktif({
                 <AlertCircle className="w-5 h-5 text-orange-600" />
               </div>
               <div>
-                <p className="text-xs text-gray-600 font-[Roboto]">Perlu Approval</p>
-                <p className="text-2xl text-gray-800 font-[Poppins]">{needsApprovalCount}</p>
+                <p className="text-xs text-gray-600 font-[Roboto]">
+                  Perlu Approval
+                </p>
+                <p className="text-2xl text-gray-800 font-[Poppins]">
+                  {needsApprovalCount}
+                </p>
               </div>
             </div>
           </div>
 
-          <div 
+          <div
             onClick={() => {
               if (filterMode === "ready") {
                 setFilterMode("all");
@@ -536,8 +747,8 @@ export function BimbinganAktif({
               }
             }}
             className={`rounded-lg border p-4 cursor-pointer transition-all ${
-              filterMode === "ready" 
-                ? "bg-green-50 border-green-300 shadow-md" 
+              filterMode === "ready"
+                ? "bg-green-50 border-green-300 shadow-md"
                 : "bg-white border-gray-200 hover:shadow-md"
             }`}
           >
@@ -546,8 +757,12 @@ export function BimbinganAktif({
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-xs text-gray-600 font-[Roboto]">Siap Sidang</p>
-                <p className="text-2xl text-gray-800 font-[Poppins]">{readyForSidangCount}</p>
+                <p className="text-xs text-gray-600 font-[Roboto]">
+                  Siap / Sedang Sidang
+                </p>
+                <p className="text-2xl text-gray-800 font-[Poppins]">
+                  {readyForSidangCount}
+                </p>
               </div>
             </div>
           </div>
@@ -611,9 +826,12 @@ export function BimbinganAktif({
             >
               <option value="Semua">Semua Status</option>
               <option value="Dalam Pengerjaan">Dalam Pengerjaan</option>
-              <option value="Perlu Revisi">Perlu Revisi</option>
+              <option value="Menunggu Approval">Menunggu Approval</option>
+              <option value="Daftar Sidang">Daftar Sidang</option>
               <option value="Siap Sidang">Siap Sidang</option>
-              <option value="Menunggu Sidang">Menunggu Sidang</option>
+              <option value="Sidang">Sidang</option>
+              <option value="Pengerjaan Revisi">Pengerjaan Revisi</option>
+              <option value="Selesai">Selesai</option>
             </select>
           </div>
         </div>
@@ -621,7 +839,10 @@ export function BimbinganAktif({
         {/* Students List */}
         <div className="space-y-4">
           {filteredStudents.map((student) => (
-            <div key={student.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+            <div
+              key={student.id}
+              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
+            >
               <div className="flex items-start gap-4">
                 {/* Checkbox untuk batch approval */}
                 {filterMode === "approval" && (
@@ -637,25 +858,41 @@ export function BimbinganAktif({
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-gray-800 font-[Poppins]">{student.nama}</h3>
+                        <h3 className="text-gray-800 font-[Poppins]">
+                          {student.nama}
+                        </h3>
                         <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-[Roboto]">
                           {student.jenjang}
                         </span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-[Roboto] border ${getStatusColor(student.status)} flex items-center gap-1`}>
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-[Roboto] border ${getStatusColor(
+                            student.status
+                          )} flex items-center gap-1`}
+                        >
                           {getStatusIcon(student.status)}
                           {student.status}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 font-[Roboto] mb-1">NRP: {student.nrp}</p>
-                      <p className="text-sm text-gray-800 font-[Roboto] mb-3">{student.judulTA}</p>
-                      
+                      <p className="text-sm text-gray-600 font-[Roboto] mb-1">
+                        NRP: {student.nrp}
+                      </p>
+                      <p className="text-sm text-gray-800 font-[Roboto] mb-3">
+                        {student.judulTA}
+                      </p>
+
                       <div className="flex items-center gap-6">
-                        {/* Card Status */}
-                        <div className={`px-3 py-2 rounded-lg border ${getTahapColor(student.tahap)} flex items-center gap-2`}>
+                        {/* Card Tahap (Proposal / Tugas Akhir) */}
+                        <div
+                          className={`px-3 py-2 rounded-lg border ${getTahapColor(
+                            student.tahap
+                          )} flex items-center gap-2`}
+                        >
                           <FileText className="w-4 h-4" />
-                          <span className="text-sm font-[Roboto]">{student.tahap}</span>
+                          <span className="text-sm font-[Roboto]">
+                            {student.tahap}
+                          </span>
                         </div>
-                        
+
                         {/* Jumlah Bimbingan */}
                         <div className="flex items-center gap-2 text-sm text-gray-600 font-[Roboto]">
                           <MessageSquare className="w-4 h-4" />
@@ -676,8 +913,12 @@ export function BimbinganAktif({
                   {/* Progress Bar */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-gray-600 font-[Roboto]">Progress</span>
-                      <span className="text-xs text-gray-800 font-[Roboto] font-semibold">{student.progress}%</span>
+                      <span className="text-xs text-gray-600 font-[Roboto]">
+                        Progress
+                      </span>
+                      <span className="text-xs text-gray-800 font-[Roboto] font-semibold">
+                        {student.progress}%
+                      </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
@@ -694,7 +935,9 @@ export function BimbinganAktif({
           {filteredStudents.length === 0 && (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
               <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 font-[Roboto]">Tidak ada mahasiswa ditemukan</p>
+              <p className="text-gray-500 font-[Roboto]">
+                Tidak ada mahasiswa ditemukan
+              </p>
             </div>
           )}
         </div>
@@ -750,9 +993,21 @@ export function BimbinganAktif({
               </div>
 
               <div className="p-6">
-                <div className="mb-6">
-                  <span className={`px-3 py-1.5 rounded-lg text-sm font-[Roboto] font-semibold ${getTahapColor(selectedStudent.tahap)}`}>
+                <div className="mb-6 flex items-center gap-3">
+                  <span
+                    className={`px-3 py-1.5 rounded-lg text-sm font-[Roboto] font-semibold ${getTahapColor(
+                      selectedStudent.tahap
+                    )}`}
+                  >
                     {selectedStudent.tahap}
+                  </span>
+                  <span
+                    className={`px-3 py-1.5 rounded-lg text-sm font-[Roboto] font-semibold border ${getStatusColor(
+                      selectedStudent.status
+                    )} flex items-center gap-1`}
+                  >
+                    {getStatusIcon(selectedStudent.status)}
+                    {selectedStudent.status}
                   </span>
                 </div>
 
@@ -763,37 +1018,49 @@ export function BimbinganAktif({
                   </h3>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Nama dan NRP</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Nama dan NRP
+                      </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
                         {selectedStudent.nama} - {selectedStudent.nrp}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Judul</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Judul
+                      </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
                         {selectedStudent.judulTA}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Abstrak</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Abstrak
+                      </p>
                       <p className="text-sm text-gray-700 font-[Roboto]">
                         {selectedStudent.abstrak}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Lab</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Lab
+                      </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
                         {selectedStudent.lab}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Pembimbing 1</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Pembimbing 1
+                      </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
                         {selectedStudent.pembimbing1}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Pembimbing 2</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Pembimbing 2
+                      </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
                         {selectedStudent.pembimbing2}
                       </p>
@@ -801,6 +1068,7 @@ export function BimbinganAktif({
                   </div>
                 </div>
 
+                {/* TIMELINE BARU - mengikuti status */}
                 <div className="mb-6">
                   <h3 className="text-gray-800 font-[Poppins] mb-3 flex items-center gap-2">
                     <Calendar className="w-5 h-5" />
@@ -808,79 +1076,98 @@ export function BimbinganAktif({
                   </h3>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto">
                     <div className="flex items-center min-w-max">
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                          1
-                        </div>
-                        <p className="text-xs text-gray-700 font-[Roboto] mt-2 w-16 text-center">Proposal</p>
-                      </div>
-                      <div className="w-16 h-0.5 bg-blue-600 mx-2"></div>
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                          2
-                        </div>
-                        <p className="text-xs text-gray-700 font-[Roboto] mt-2 w-16 text-center">Sidang Proposal</p>
-                      </div>
-                      <div className="w-16 h-0.5 bg-blue-600 mx-2"></div>
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                          3
-                        </div>
-                        <p className="text-xs text-blue-700 font-[Roboto] mt-2 font-semibold w-16 text-center">Revisi Proposal</p>
-                      </div>
-                      <div className="w-16 h-0.5 bg-gray-300 mx-2"></div>
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-semibold text-sm">
-                          4
-                        </div>
-                        <p className="text-xs text-gray-500 font-[Roboto] mt-2 w-16 text-center">Pengerjaan TA</p>
-                      </div>
-                      <div className="w-16 h-0.5 bg-gray-300 mx-2"></div>
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-semibold text-sm">
-                          5
-                        </div>
-                        <p className="text-xs text-gray-500 font-[Roboto] mt-2 w-16 text-center">Sidang TA</p>
-                      </div>
-                      <div className="w-16 h-0.5 bg-gray-300 mx-2"></div>
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 font-semibold text-sm">
-                          6
-                        </div>
-                        <p className="text-xs text-gray-500 font-[Roboto] mt-2 w-16 text-center">Revisi TA</p>
-                      </div>
+                      {TIMELINE_STEPS.map((step, idx) => {
+                        const currentIndex = TIMELINE_STEPS.indexOf(
+                          selectedStudent.status
+                        );
+                        const isActive = currentIndex >= idx;
+
+                        return (
+                          <div key={step} className="flex items-center">
+                            {idx > 0 && (
+                              <div
+                                className={`w-16 h-0.5 mx-2 ${
+                                  idx <= currentIndex
+                                    ? "bg-blue-600"
+                                    : "bg-gray-300"
+                                }`}
+                              />
+                            )}
+                            <div className="flex flex-col items-center">
+                              <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm ${
+                                  isActive
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-300 text-gray-600"
+                                }`}
+                              >
+                                {idx + 1}
+                              </div>
+                              <p
+                                className={`text-xs mt-2 w-24 text-center font-[Roboto] ${
+                                  isActive
+                                    ? "text-blue-700 font-semibold"
+                                    : "text-gray-500"
+                                }`}
+                              >
+                                {step}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                     <p className="text-xs text-gray-600 font-[Roboto] mt-4">
-                      Status saat ini: <span className="font-semibold text-blue-700">{selectedStudent.tahap}</span>
+                      Tahap:{" "}
+                      <span className="font-semibold text-blue-700">
+                        {selectedStudent.tahap}
+                      </span>{" "}
+                      • Status:{" "}
+                      <span className="font-semibold text-blue-700">
+                        {selectedStudent.status}
+                      </span>
                     </p>
                   </div>
                 </div>
 
+                {/* Dummy info sidang (bisa kamu sambungkan ke data riil jadwal sidang) */}
                 <div className="mb-6">
                   <h3 className="text-gray-800 font-[Poppins] mb-3 flex items-center gap-2">
                     <Calendar className="w-5 h-5" />
-                    Informasi Sidang Proposal
+                    Informasi Sidang
                   </h3>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-gray-600" />
                       <div>
-                        <p className="text-xs text-gray-600 font-[Roboto]">Tanggal</p>
-                        <p className="text-sm text-gray-800 font-[Roboto]">12 Januari 2026</p>
+                        <p className="text-xs text-gray-600 font-[Roboto]">
+                          Tanggal (contoh)
+                        </p>
+                        <p className="text-sm text-gray-800 font-[Roboto]">
+                          12 Januari 2026
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-gray-600" />
                       <div>
-                        <p className="text-xs text-gray-600 font-[Roboto]">Waktu</p>
-                        <p className="text-sm text-gray-800 font-[Roboto]">09.00 - 11.00 WIB</p>
+                        <p className="text-xs text-gray-600 font-[Roboto]">
+                          Waktu
+                        </p>
+                        <p className="text-sm text-gray-800 font-[Roboto]">
+                          09.00 - 11.00 WIB
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-600" />
                       <div>
-                        <p className="text-xs text-gray-600 font-[Roboto]">Lokasi</p>
-                        <p className="text-sm text-gray-800 font-[Roboto]">Ruang Sidang 1 Departemen Informatika</p>
+                        <p className="text-xs text-gray-600 font-[Roboto]">
+                          Lokasi
+                        </p>
+                        <p className="text-sm text-gray-800 font-[Roboto]">
+                          Ruang Sidang 1 Departemen Informatika
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -892,11 +1179,13 @@ export function BimbinganAktif({
                     Catatan Revisi
                   </h4>
                   <p className="text-sm text-blue-700 font-[Roboto]">
-                    Mahasiswa diminta untuk melakukan revisi terhadap naskah proposal dan menyesuaikan bagian metodologi serta penulisan bab hasil dan pembahasan agar sesuai dengan yang diberikan saat sidang.
+                    Mahasiswa diminta untuk melakukan revisi terhadap naskah
+                    sesuai masukan dosen dan/atau penguji. Catatan detail bisa
+                    ditambahkan pada halaman log bimbingan.
                   </p>
                 </div>
 
-                {/* Section Approval - tampil jika needs approval */}
+                {/* Section Approval - tampil jika needsApproval */}
                 {selectedStudent.needsApproval && (
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                     <h4 className="text-orange-800 font-[Poppins] mb-3 flex items-center gap-2">
@@ -904,14 +1193,17 @@ export function BimbinganAktif({
                       Persetujuan
                     </h4>
                     <p className="text-sm text-orange-700 font-[Roboto] mb-4">
-                      Mahasiswa ini membutuhkan persetujuan Anda untuk melanjutkan ke tahap berikutnya.
+                      Mahasiswa ini sedang berada pada tahap{" "}
+                      <strong>{selectedStudent.status}</strong> dan
+                      membutuhkan persetujuan Anda untuk melanjutkan ke tahap
+                      berikutnya dalam timeline.
                     </p>
                     <button
                       onClick={() => handleApproveStudent(selectedStudent.id)}
                       className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-[Roboto] flex items-center justify-center gap-2"
                     >
                       <Check className="w-4 h-4" />
-                      Setujui Mahasiswa
+                      Setujui & Lanjutkan Tahap
                     </button>
                   </div>
                 )}
@@ -980,37 +1272,49 @@ export function BimbinganAktif({
                   </h3>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Nama dan NRP</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Nama dan NRP
+                      </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
                         {selectedTopic.nama} - {selectedTopic.nrp}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Angkatan</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Angkatan
+                      </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
                         {selectedTopic.angkatan}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Judul</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Judul
+                      </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
                         {selectedTopic.judul}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Abstrak</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Abstrak
+                      </p>
                       <p className="text-sm text-gray-700 font-[Roboto]">
                         {selectedTopic.abstrak}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">Tanggal Ajuan</p>
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Tanggal Ajuan
+                      </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
-                        {new Date(selectedTopic.tanggalAjuan).toLocaleDateString('id-ID', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
+                        {new Date(
+                          selectedTopic.tanggalAjuan
+                        ).toLocaleDateString("id-ID", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
                         })}
                       </p>
                     </div>
@@ -1023,7 +1327,9 @@ export function BimbinganAktif({
                     Catatan
                   </h4>
                   <p className="text-sm text-blue-700 font-[Roboto]">
-                    Pastikan untuk memverifikasi kelayakan topik sebelum memberikan persetujuan. Topik harus sesuai dengan bidang keahlian dan memiliki ruang lingkup yang jelas.
+                    Pastikan untuk memverifikasi kelayakan topik sebelum
+                    memberikan persetujuan. Topik harus sesuai dengan bidang
+                    keahlian dan memiliki ruang lingkup yang jelas.
                   </p>
                 </div>
               </div>
@@ -1037,7 +1343,7 @@ export function BimbinganAktif({
                 </button>
                 <button
                   onClick={() => {
-                    handleApproveSingle(selectedTopic.id);
+                    handleApproveSingle(selectedTopic!.id);
                     setShowTopicDetailModal(false);
                   }}
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-[Roboto] flex items-center justify-center gap-2"
@@ -1060,14 +1366,18 @@ export function BimbinganAktif({
           steps={[
             {
               title: "Kelola Bimbingan Aktif",
-              description: "Halaman Bimbingan Aktif menampilkan semua mahasiswa yang sedang Anda bimbing. Anda dapat melihat progress mahasiswa, status terkini, dan deadline yang harus dipenuhi.",
-              imageUrl: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800"
+              description:
+                "Halaman Bimbingan Aktif menampilkan semua mahasiswa yang sedang Anda bimbing. Anda dapat melihat progress mahasiswa, status terkini, dan timeline proses.",
+              imageUrl:
+                "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800",
             },
             {
-              title: "Lihat Detail Mahasiswa",
-              description: "Klik tombol 'Lihat' pada setiap card mahasiswa untuk melihat informasi lengkap termasuk timeline proses, informasi sidang, dan catatan revisi.",
-              imageUrl: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800"
-            }
+              title: "Lihat Detail dan Setujui Tahap",
+              description:
+                "Klik tombol 'Lihat' pada setiap card mahasiswa untuk membuka detail, melihat timeline tahap, dan melakukan persetujuan pada tahap Menunggu Approval atau Daftar Sidang.",
+              imageUrl:
+                "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800",
+            },
           ]}
         />
       )}
