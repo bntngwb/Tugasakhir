@@ -84,6 +84,12 @@ interface Proposal {
   missingFields?: string[];
   stage: "proposal" | "final";
 
+  // ⬇️ File tambahan khusus tahap Tugas Akhir (final)
+  toeflFile?: File | null;
+  toeflFileName?: string;
+  guidanceScreenshotFile?: File | null;
+  guidanceScreenshotFileName?: string;
+
   // Approval fields
   supervisor1Approval?: "pending" | "approved" | "rejected";
   supervisor2Approval?: "pending" | "approved" | "rejected";
@@ -93,6 +99,7 @@ interface Proposal {
   adminApprovalDate?: string;
   approvalDeadline?: string;
 }
+:contentReference[oaicite:0]{index=0}
 
 interface Hearing {
   id: number;
@@ -347,42 +354,62 @@ export default function App() {
       });
     }
 
-    const newProposal: Proposal = {
-      id: editingProposal ? editingProposal.id : Date.now(),
-      title: proposalData.title,
-      category: proposalData.category,
-      grouped: proposalData.grouped,
-      abstract: proposalData.abstract,
-      keywords: proposalData.keywords,
-      supervisor1: proposalData.supervisor1,
-      supervisor2: proposalData.supervisor2 || "-",
-      file: proposalData.file,
-      fileName: proposalData.file ? proposalData.file.name : "",
-      laboratory: proposalData.category.split(" - ")[0] || "Laboratorium",
-      scheduleDate: "",
-      scheduleTime: "",
-      status: isDraft ? "Draft" : "Menunggu Persetujuan",
-      isDraft: isDraft,
-      missingFields: proposalData.missingFields || [],
-      stage: editingProposal ? editingProposal.stage : "proposal",
+const newProposal: Proposal = {
+  id: editingProposal ? editingProposal.id : Date.now(),
+  title: proposalData.title,
+  category: proposalData.category,
+  grouped: proposalData.grouped,
+  abstract: proposalData.abstract,
+  keywords: proposalData.keywords,
+  supervisor1: proposalData.supervisor1,
+  supervisor2: proposalData.supervisor2 || "-",
+  file: proposalData.file,
+  fileName: proposalData.file ? proposalData.file.name : "",
+  laboratory: proposalData.category.split(" - ")[0] || "Laboratorium",
+  scheduleDate: "",
+  scheduleTime: "",
+  status: isDraft ? "Draft" : "Menunggu Persetujuan",
+  isDraft: isDraft,
+  missingFields: proposalData.missingFields || [],
+  stage: editingProposal ? editingProposal.stage : "proposal",
 
-      // Initialize approval fields if not draft
-      supervisor1Approval: !isDraft
-        ? editingProposal?.supervisor1Approval || "pending"
-        : editingProposal?.supervisor1Approval,
-      supervisor2Approval: !isDraft
-        ? editingProposal?.supervisor2Approval || "pending"
-        : editingProposal?.supervisor2Approval,
-      adminApproval: !isDraft
-        ? editingProposal?.adminApproval || "pending"
-        : editingProposal?.adminApproval,
-      approvalDeadline: !isDraft
-        ? editingProposal?.approvalDeadline || approvalDeadline
-        : editingProposal?.approvalDeadline,
-      supervisor1ApprovalDate: editingProposal?.supervisor1ApprovalDate,
-      supervisor2ApprovalDate: editingProposal?.supervisor2ApprovalDate,
-      adminApprovalDate: editingProposal?.adminApprovalDate,
-    };
+  // ⬇️ simpan file TOEFL & Screenshot Bimbingan (kalau ada)
+  toeflFile:
+    proposalData.toeflFile ??
+    editingProposal?.toeflFile ??
+    null,
+  toeflFileName:
+    proposalData.toeflFile
+      ? proposalData.toeflFile.name
+      : editingProposal?.toeflFileName ?? "",
+  guidanceScreenshotFile:
+    proposalData.guidanceScreenshotFile ??
+    editingProposal?.guidanceScreenshotFile ??
+    null,
+  guidanceScreenshotFileName:
+    proposalData.guidanceScreenshotFile
+      ? proposalData.guidanceScreenshotFile.name
+      : editingProposal?.guidanceScreenshotFileName ?? "",
+
+  // Initialize approval fields if not draft
+  supervisor1Approval: !isDraft
+    ? editingProposal?.supervisor1Approval || "pending"
+    : editingProposal?.supervisor1Approval,
+  supervisor2Approval: !isDraft
+    ? editingProposal?.supervisor2Approval || "pending"
+    : editingProposal?.supervisor2Approval,
+  adminApproval: !isDraft
+    ? editingProposal?.adminApproval || "pending"
+    : editingProposal?.adminApproval,
+  approvalDeadline: !isDraft
+    ? editingProposal?.approvalDeadline || approvalDeadline
+    : editingProposal?.approvalDeadline,
+  supervisor1ApprovalDate: editingProposal?.supervisor1ApprovalDate,
+  supervisor2ApprovalDate: editingProposal?.supervisor2ApprovalDate,
+  adminApprovalDate: editingProposal?.adminApprovalDate,
+};
+:contentReference[oaicite:1]{index=1}
+
 
     if (editingProposal) {
       // Update existing proposal

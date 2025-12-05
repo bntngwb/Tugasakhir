@@ -19,9 +19,13 @@ interface Proposal {
   missingFields?: string[];
   stage: "proposal" | "final";
 
+  // Tambahan untuk tugas akhir
+  toeflFileName?: string;
+  guidanceScreenshotFileName?: string;
+
   supervisor1Approval?: "pending" | "approved" | "rejected";
   supervisor2Approval?: "pending" | "approved" | "rejected";
-  adminApproval?: "pending" | "approved" | "rejected";
+  adminApproval?: "pending" | "approved" | "rejected"; // disimpan, tidak ditampilkan
   supervisor1ApprovalDate?: string;
   supervisor2ApprovalDate?: string;
   adminApprovalDate?: string;
@@ -77,6 +81,7 @@ export function ProposalDetail({ proposal, onBack }: ProposalDetailProps) {
             <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
               <BookOpen className="w-6 h-6 text-blue-600" />
             </div>
+
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
                 <h1 className="text-gray-800 font-[Poppins] text-[20px] leading-snug">
@@ -132,7 +137,7 @@ export function ProposalDetail({ proposal, onBack }: ProposalDetailProps) {
               </p>
             </section>
 
-            {/* Keywords + File */}
+            {/* Keywords + Berkas */}
             <section className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
               <div>
                 <h2 className="text-sm font-[Poppins] text-gray-800 mb-1">
@@ -143,16 +148,17 @@ export function ProposalDetail({ proposal, onBack }: ProposalDetailProps) {
                 </p>
               </div>
 
+              {/* Berkas Proposal */}
               <div>
                 <h2 className="text-sm font-[Poppins] text-gray-800 mb-1">
                   Berkas Proposal
                 </h2>
                 {proposal.fileName ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-700 font-[Roboto]">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 font-[Roboto]">
                     <FileText className="w-4 h-4 text-blue-600" />
                     <span>{proposal.fileName}</span>
                     <span className="text-xs text-gray-400">
-                      (dummy – untuk prototype, belum ada download)
+                      (prototype – belum ada fitur download)
                     </span>
                   </div>
                 ) : (
@@ -161,13 +167,62 @@ export function ProposalDetail({ proposal, onBack }: ProposalDetailProps) {
                   </p>
                 )}
               </div>
+
+              {/* Dokumen tambahan khusus Tugas Akhir */}
+              {proposal.stage === "final" && (
+                <div className="pt-4 mt-2 border-t border-gray-100 space-y-3">
+                  <h2 className="text-sm font-[Poppins] text-gray-800">
+                    Dokumen Pendukung Tugas Akhir
+                  </h2>
+
+                  {/* Sertifikat TOEFL */}
+                  <div>
+                    <p className="text-xs font-[Poppins] text-gray-600 mb-1">
+                      Sertifikat TOEFL
+                    </p>
+                    {proposal.toeflFileName ? (
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 font-[Roboto]">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span>{proposal.toeflFileName}</span>
+                        <span className="text-xs text-gray-400">
+                          (prototype – belum ada fitur download)
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 font-[Roboto]">
+                        Belum ada file sertifikat TOEFL yang diunggah
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Screenshot Bimbingan */}
+                  <div>
+                    <p className="text-xs font-[Poppins] text-gray-600 mb-1">
+                      Screenshot Bimbingan
+                    </p>
+                    {proposal.guidanceScreenshotFileName ? (
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 font-[Roboto]">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span>{proposal.guidanceScreenshotFileName}</span>
+                        <span className="text-xs text-gray-400">
+                          (prototype – belum ada fitur download)
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 font-[Roboto]">
+                        Belum ada file screenshot bimbingan yang diunggah
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Jadwal (kalau sudah diisi) */}
             {(proposal.scheduleDate || proposal.scheduleTime) && (
               <section className="bg-white rounded-lg border border-gray-200 p-5">
                 <h2 className="text-sm font-[Poppins] text-gray-800 mb-2">
-                  Informasi Jadwal (Jika Sudah Ditentukan)
+                  Informasi Jadwal Sidang
                 </h2>
                 <div className="flex flex-wrap items-center gap-4 text-sm font-[Roboto] text-gray-700">
                   {proposal.scheduleDate && (
@@ -186,7 +241,7 @@ export function ProposalDetail({ proposal, onBack }: ProposalDetailProps) {
             )}
           </div>
 
-          {/* Right: Persetujuan dan meta */}
+          {/* Right: Pembimbing & Persetujuan */}
           <div className="space-y-5">
             {/* Info Pembimbing */}
             <section className="bg-white rounded-lg border border-gray-200 p-5">
@@ -211,12 +266,13 @@ export function ProposalDetail({ proposal, onBack }: ProposalDetailProps) {
               </div>
             </section>
 
-            {/* Status Persetujuan */}
+            {/* Status Persetujuan (tanpa admin) */}
             <section className="bg-white rounded-lg border border-gray-200 p-5">
               <h2 className="text-sm font-[Poppins] text-gray-800 mb-3">
                 Status Persetujuan
               </h2>
               <div className="space-y-3 text-xs font-[Roboto] text-gray-700">
+                {/* Pembimbing 1 */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-medium">Pembimbing 1</p>
@@ -234,6 +290,7 @@ export function ProposalDetail({ proposal, onBack }: ProposalDetailProps) {
                   </div>
                 </div>
 
+                {/* Pembimbing 2 */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-medium">Pembimbing 2</p>
@@ -251,20 +308,7 @@ export function ProposalDetail({ proposal, onBack }: ProposalDetailProps) {
                   </div>
                 </div>
 
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium">Admin</p>
-                    <p className="text-gray-500">Administrator Prodi</p>
-                  </div>
-                  <div className="text-right">
-                    <p>{proposal.adminApproval || "pending"}</p>
-                    {proposal.adminApprovalDate && (
-                      <p className="text-gray-400">
-                        {proposal.adminApprovalDate}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                {/* Admin approval tidak ditampilkan */}
 
                 {proposal.approvalDeadline && (
                   <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">

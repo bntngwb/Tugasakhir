@@ -1,5 +1,12 @@
-import { ArrowLeft, Upload, X, MessageCircle, Send, BookOpen, AlertCircle, HelpCircle, Mail } from "lucide-react";
-import { useState, useEffect } from "react";
+import {
+  ArrowLeft,
+  Upload,
+  X,
+  AlertCircle,
+  HelpCircle,
+  Mail,
+} from "lucide-react";
+import { useState, useEffect, ChangeEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -25,6 +32,11 @@ interface Proposal {
   supervisor2: string;
   file: File | null;
   fileName: string;
+
+  // Tambahan untuk tahap TA
+  stage?: "proposal" | "final";
+  toeflFile?: File | null;
+  guidanceScreenshotFile?: File | null;
 }
 
 interface ProposalFormProps {
@@ -33,7 +45,11 @@ interface ProposalFormProps {
   editingProposal?: Proposal | null;
 }
 
-export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormProps) {
+export function ProposalForm({
+  onBack,
+  onSave,
+  editingProposal,
+}: ProposalFormProps) {
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -43,19 +59,23 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
     supervisor1: "",
     supervisor2: "",
     file: null as File | null,
+    toeflFile: null as File | null,
+    guidanceScreenshotFile: null as File | null,
   });
 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showValidation, setShowValidation] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
-  
+
   // Contact form state
   const [contactForm, setContactForm] = useState({
     category: "",
     question: "",
-    email: ""
+    email: "",
   });
+
+  const isFinalStage = editingProposal?.stage === "final";
 
   useEffect(() => {
     if (editingProposal) {
@@ -68,19 +88,37 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
         supervisor1: editingProposal.supervisor1 || "",
         supervisor2: editingProposal.supervisor2 || "",
         file: editingProposal.file || null,
+        toeflFile: editingProposal.toeflFile || null,
+        guidanceScreenshotFile:
+          editingProposal.guidanceScreenshotFile || null,
       });
     }
   }, [editingProposal]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFormData({ ...formData, file: e.target.files[0] });
     }
   };
 
+  const handleToeflFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFormData({ ...formData, toeflFile: e.target.files[0] });
+    }
+  };
+
+  const handleGuidanceFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFormData({
+        ...formData,
+        guidanceScreenshotFile: e.target.files[0],
+      });
+    }
+  };
+
   const validateForm = () => {
     const errors: string[] = [];
-    
+
     if (!formData.title.trim()) errors.push("Judul");
     if (!formData.category) errors.push("Kategori");
     if (!formData.grouped) errors.push("Berkelompok");
@@ -88,6 +126,16 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
     if (!formData.keywords.trim()) errors.push("Kata Kunci");
     if (!formData.supervisor1) errors.push("Dosen Pembimbing 1");
     if (!formData.file) errors.push("File Proposal");
+
+    // Tambahan wajib khusus tahap TA (final)
+    if (isFinalStage) {
+      if (!formData.toeflFile) {
+        errors.push("File Sertifikat TOEFL");
+      }
+      if (!formData.guidanceScreenshotFile) {
+        errors.push("File Screenshot Bimbingan");
+      }
+    }
 
     return errors;
   };
@@ -100,7 +148,7 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
 
   const handleSaveSubmission = () => {
     const errors = validateForm();
-    
+
     if (errors.length > 0) {
       setValidationErrors(errors);
       setShowValidation(true);
@@ -118,7 +166,7 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
       toast.error("Mohon lengkapi semua field");
       return;
     }
-    
+
     toast.success("Pertanyaan berhasil dikirim ke admin");
     setContactForm({ category: "", question: "", email: "" });
     setIsContactModalOpen(false);
@@ -132,7 +180,7 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
     "KCV - Komputasi Cerdas dan Visi",
     "NCC - Jaringan Cerdas dan Cyber Security",
     "NETICS - Internet Cerdas dan Sistem",
-    "PKT - Pengolahan Kode dan Teks"
+    "PKT - Pengolahan Kode dan Teks",
   ];
 
   const supervisors = [
@@ -143,7 +191,7 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
     "Dr. Rina Wijaya, M.Kom.",
     "Dr. Lisa Permata, S.T., M.T.",
     "Dr. Hendra Wijaya, M.T.",
-    "Dr. Bambang Susilo, M.Kom."
+    "Dr. Bambang Susilo, M.Kom.",
   ];
 
   return (
@@ -163,7 +211,9 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-gray-800 font-[Poppins] text-[24px]">
-                {editingProposal ? "Edit Usulan Tugas Akhir" : "Buat Usulan Tugas Akhir"}
+                {editingProposal
+                  ? "Edit Usulan Tugas Akhir"
+                  : "Buat Usulan Tugas Akhir"}
               </h1>
               <p className="text-sm text-gray-500 font-[Roboto] mt-1">
                 Lengkapi formulir di bawah untuk mengajukan usulan tugas akhir
@@ -171,13 +221,13 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
             </div>
           </div>
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={() => setIsContactModalOpen(true)}
               className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 font-[Roboto] text-sm transition-colors"
             >
               Hubungi Admin
             </button>
-            <button 
+            <button
               onClick={() => setIsGuideModalOpen(true)}
               className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 font-[Roboto] text-sm transition-colors"
             >
@@ -215,23 +265,37 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
                 id="title"
                 placeholder="Masukkan judul tugas akhir"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
                 className="font-[Roboto]"
               />
             </div>
 
             {/* Category */}
             <div className="space-y-2">
-              <Label htmlFor="category" className="text-gray-800 font-[Poppins]">
+              <Label
+                htmlFor="category"
+                className="text-gray-800 font-[Poppins]"
+              >
                 Kategori <span className="text-red-500">*</span>
               </Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+              <Select
+                value={formData.category}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, category: value })
+                }
+              >
                 <SelectTrigger className="font-[Roboto]">
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat} className="font-[Roboto]">
+                    <SelectItem
+                      key={cat}
+                      value={cat}
+                      className="font-[Roboto]"
+                    >
                       {cat}
                     </SelectItem>
                   ))}
@@ -241,44 +305,66 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
 
             {/* Grouped */}
             <div className="space-y-2">
-              <Label htmlFor="grouped" className="text-gray-800 font-[Poppins]">
+              <Label
+                htmlFor="grouped"
+                className="text-gray-800 font-[Poppins]"
+              >
                 Berkelompok <span className="text-red-500">*</span>
               </Label>
-              <Select value={formData.grouped} onValueChange={(value) => setFormData({ ...formData, grouped: value })}>
+              <Select
+                value={formData.grouped}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, grouped: value })
+                }
+              >
                 <SelectTrigger className="font-[Roboto]">
                   <SelectValue placeholder="Pilih opsi" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="yes" className="font-[Roboto]">Ya</SelectItem>
-                  <SelectItem value="no" className="font-[Roboto]">Tidak</SelectItem>
+                  <SelectItem value="yes" className="font-[Roboto]">
+                    Ya
+                  </SelectItem>
+                  <SelectItem value="no" className="font-[Roboto]">
+                    Tidak
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Abstract */}
             <div className="space-y-2">
-              <Label htmlFor="abstract" className="text-gray-800 font-[Poppins]">
+              <Label
+                htmlFor="abstract"
+                className="text-gray-800 font-[Poppins]"
+              >
                 Abstrak <span className="text-red-500">*</span>
               </Label>
               <Textarea
                 id="abstract"
                 placeholder="Masukkan abstrak tugas akhir"
                 value={formData.abstract}
-                onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, abstract: e.target.value })
+                }
                 className="font-[Roboto] min-h-[150px]"
               />
             </div>
 
             {/* Keywords */}
             <div className="space-y-2">
-              <Label htmlFor="keywords" className="text-gray-800 font-[Poppins]">
+              <Label
+                htmlFor="keywords"
+                className="text-gray-800 font-[Poppins]"
+              >
                 Kata Kunci <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="keywords"
                 placeholder="Masukkan kata kunci (pisahkan dengan koma)"
                 value={formData.keywords}
-                onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, keywords: e.target.value })
+                }
                 className="font-[Roboto]"
               />
               <p className="text-xs text-gray-500 font-[Roboto]">
@@ -288,16 +374,28 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
 
             {/* Supervisor 1 */}
             <div className="space-y-2">
-              <Label htmlFor="supervisor1" className="text-gray-800 font-[Poppins]">
+              <Label
+                htmlFor="supervisor1"
+                className="text-gray-800 font-[Poppins]"
+              >
                 Dosen Pembimbing 1 <span className="text-red-500">*</span>
               </Label>
-              <Select value={formData.supervisor1} onValueChange={(value) => setFormData({ ...formData, supervisor1: value })}>
+              <Select
+                value={formData.supervisor1}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, supervisor1: value })
+                }
+              >
                 <SelectTrigger className="font-[Roboto]">
                   <SelectValue placeholder="Pilih dosen pembimbing 1" />
                 </SelectTrigger>
                 <SelectContent>
                   {supervisors.map((supervisor) => (
-                    <SelectItem key={supervisor} value={supervisor} className="font-[Roboto]">
+                    <SelectItem
+                      key={supervisor}
+                      value={supervisor}
+                      className="font-[Roboto]"
+                    >
                       {supervisor}
                     </SelectItem>
                   ))}
@@ -307,16 +405,28 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
 
             {/* Supervisor 2 */}
             <div className="space-y-2">
-              <Label htmlFor="supervisor2" className="text-gray-800 font-[Poppins]">
+              <Label
+                htmlFor="supervisor2"
+                className="text-gray-800 font-[Poppins]"
+              >
                 Dosen Pembimbing 2
               </Label>
-              <Select value={formData.supervisor2} onValueChange={(value) => setFormData({ ...formData, supervisor2: value })}>
+              <Select
+                value={formData.supervisor2}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, supervisor2: value })
+                }
+              >
                 <SelectTrigger className="font-[Roboto]">
                   <SelectValue placeholder="Pilih dosen pembimbing 2 (opsional)" />
                 </SelectTrigger>
                 <SelectContent>
                   {supervisors.map((supervisor) => (
-                    <SelectItem key={supervisor} value={supervisor} className="font-[Roboto]">
+                    <SelectItem
+                      key={supervisor}
+                      value={supervisor}
+                      className="font-[Roboto]"
+                    >
                       {supervisor}
                     </SelectItem>
                   ))}
@@ -324,7 +434,7 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
               </Select>
             </div>
 
-            {/* File Upload */}
+            {/* File Proposal */}
             <div className="space-y-2">
               <Label htmlFor="file" className="text-gray-800 font-[Poppins]">
                 File Proposal <span className="text-red-500">*</span>
@@ -340,7 +450,9 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
                 <label htmlFor="file" className="cursor-pointer">
                   <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-600 font-[Roboto] mb-1">
-                    {formData.file ? formData.file.name : "Klik untuk upload file"}
+                    {formData.file
+                      ? formData.file.name
+                      : "Klik untuk upload file"}
                   </p>
                   <p className="text-xs text-gray-500 font-[Roboto]">
                     Format: PDF, DOC, DOCX (Maks. 10MB)
@@ -348,6 +460,76 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
                 </label>
               </div>
             </div>
+
+            {/* Field tambahan khusus Tugas Akhir (stage final) */}
+            {isFinalStage && (
+              <>
+                {/* Upload Sertifikat TOEFL */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="toeflFile"
+                    className="text-gray-800 font-[Poppins]"
+                  >
+                    File Sertifikat TOEFL{" "}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                    <input
+                      type="file"
+                      id="toeflFile"
+                      className="hidden"
+                      onChange={handleToeflFileChange}
+                      accept=".pdf,.jpg,.jpeg,.png"
+                    />
+                    <label htmlFor="toeflFile" className="cursor-pointer">
+                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 font-[Roboto] mb-1">
+                        {formData.toeflFile
+                          ? formData.toeflFile.name
+                          : "Klik untuk upload sertifikat TOEFL"}
+                      </p>
+                      <p className="text-xs text-gray-500 font-[Roboto]">
+                        Format: PDF / JPG / PNG (Maks. 10MB)
+                      </p>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Upload Screenshot Bimbingan */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="guidanceScreenshotFile"
+                    className="text-gray-800 font-[Poppins]"
+                  >
+                    File Screenshot Bimbingan{" "}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                    <input
+                      type="file"
+                      id="guidanceScreenshotFile"
+                      className="hidden"
+                      onChange={handleGuidanceFileChange}
+                      accept=".pdf,.jpg,.jpeg,.png"
+                    />
+                    <label
+                      htmlFor="guidanceScreenshotFile"
+                      className="cursor-pointer"
+                    >
+                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 font-[Roboto] mb-1">
+                        {formData.guidanceScreenshotFile
+                          ? formData.guidanceScreenshotFile.name
+                          : "Klik untuk upload screenshot riwayat bimbingan"}
+                      </p>
+                      <p className="text-xs text-gray-500 font-[Roboto]">
+                        Format: PDF / JPG / PNG (Maks. 10MB)
+                      </p>
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -369,7 +551,9 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
 
         {/* Footer */}
         <footer className="mt-16 pt-8 border-t border-gray-200 flex items-center justify-between">
-          <p className="text-sm text-gray-500">© 2021-2025 Institut Teknologi Sepuluh Nopember</p>
+          <p className="text-sm text-gray-500">
+            © 2021-2025 Institut Teknologi Sepuluh Nopember
+          </p>
         </footer>
 
         {/* Contact Admin Modal */}
@@ -384,7 +568,11 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
                   setIsContactModalOpen(false);
-                  setContactForm({ category: "", question: "", email: "" });
+                  setContactForm({
+                    category: "",
+                    question: "",
+                    email: "",
+                  });
                 }
               }}
             >
@@ -401,12 +589,18 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
                     <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
                       <HelpCircle className="w-5 h-5 text-blue-600" />
                     </div>
-                    <h2 className="font-[Poppins] text-gray-800">Hubungi Admin</h2>
+                    <h2 className="font-[Poppins] text-gray-800">
+                      Hubungi Admin
+                    </h2>
                   </div>
                   <button
                     onClick={() => {
                       setIsContactModalOpen(false);
-                      setContactForm({ category: "", question: "", email: "" });
+                      setContactForm({
+                        category: "",
+                        question: "",
+                        email: "",
+                      });
                     }}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
@@ -417,48 +611,89 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
                 {/* Content */}
                 <div className="p-6 space-y-6">
                   <p className="text-sm text-gray-600 font-[Roboto]">
-                    Jika Anda mengalami kesulitan atau memiliki pertanyaan, silakan hubungi admin melalui form di bawah ini.
+                    Jika Anda mengalami kesulitan atau memiliki pertanyaan,
+                    silakan hubungi admin melalui form di bawah ini.
                   </p>
 
                   {/* Section 1: Kategori Pertanyaan */}
                   <div className="space-y-2">
-                    <Label htmlFor="contact-category" className="text-gray-800 font-[Poppins]">
-                      Pertanyaan di Bagian Apa? <span className="text-red-500">*</span>
+                    <Label
+                      htmlFor="contact-category"
+                      className="text-gray-800 font-[Poppins]"
+                    >
+                      Pertanyaan di Bagian Apa?{" "}
+                      <span className="text-red-500">*</span>
                     </Label>
-                    <Select 
-                      value={contactForm.category} 
-                      onValueChange={(value) => setContactForm({ ...contactForm, category: value })}
+                    <Select
+                      value={contactForm.category}
+                      onValueChange={(value) =>
+                        setContactForm({ ...contactForm, category: value })
+                      }
                     >
                       <SelectTrigger className="font-[Roboto]">
                         <SelectValue placeholder="Pilih kategori pertanyaan" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="error-system" className="font-[Roboto]">Error pada Sistem</SelectItem>
-                        <SelectItem value="kebingungan" className="font-[Roboto]">Kebingungan Menggunakan Fitur</SelectItem>
-                        <SelectItem value="salah-isi-form" className="font-[Roboto]">Salah Mengisi Form</SelectItem>
-                        <SelectItem value="pertanyaan-umum" className="font-[Roboto]">Pertanyaan Umum</SelectItem>
-                        <SelectItem value="lainnya" className="font-[Roboto]">Lainnya</SelectItem>
+                        <SelectItem
+                          value="error-system"
+                          className="font-[Roboto]"
+                        >
+                          Error pada Sistem
+                        </SelectItem>
+                        <SelectItem
+                          value="kebingungan"
+                          className="font-[Roboto]"
+                        >
+                          Kebingungan Menggunakan Fitur
+                        </SelectItem>
+                        <SelectItem
+                          value="salah-isi-form"
+                          className="font-[Roboto]"
+                        >
+                          Salah Mengisi Form
+                        </SelectItem>
+                        <SelectItem
+                          value="pertanyaan-umum"
+                          className="font-[Roboto]"
+                        >
+                          Pertanyaan Umum
+                        </SelectItem>
+                        <SelectItem value="lainnya" className="font-[Roboto]">
+                          Lainnya
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {/* Section 2: Pertanyaan */}
                   <div className="space-y-2">
-                    <Label htmlFor="contact-question" className="text-gray-800 font-[Poppins]">
-                      Tuliskan Pertanyaan Anda <span className="text-red-500">*</span>
+                    <Label
+                      htmlFor="contact-question"
+                      className="text-gray-800 font-[Poppins]"
+                    >
+                      Tuliskan Pertanyaan Anda{" "}
+                      <span className="text-red-500">*</span>
                     </Label>
                     <Textarea
                       id="contact-question"
                       placeholder="Jelaskan pertanyaan atau masalah yang Anda alami..."
                       value={contactForm.question}
-                      onChange={(e) => setContactForm({ ...contactForm, question: e.target.value })}
+                      onChange={(e) =>
+                        setContactForm({
+                          ...contactForm,
+                          question: e.target.value,
+                        })
+                      }
                       className="font-[Roboto] min-h-[120px]"
                     />
                   </div>
 
                   {/* Section 3: Email */}
                   <div className="space-y-2">
-                    <Label htmlFor="contact-email" className="text-gray-800 font-[Poppins]">
+                    <Label
+                      htmlFor="contact-email"
+                      className="text-gray-800 font-[Poppins]"
+                    >
                       Email Anda <span className="text-red-500">*</span>
                     </Label>
                     <div className="relative">
@@ -468,7 +703,12 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
                         type="email"
                         placeholder="contoh@email.com"
                         value={contactForm.email}
-                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                        onChange={(e) =>
+                          setContactForm({
+                            ...contactForm,
+                            email: e.target.value,
+                          })
+                        }
                         className="font-[Roboto] pl-10"
                       />
                     </div>
@@ -483,7 +723,11 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
                   <button
                     onClick={() => {
                       setIsContactModalOpen(false);
-                      setContactForm({ category: "", question: "", email: "" });
+                      setContactForm({
+                        category: "",
+                        question: "",
+                        email: "",
+                      });
                     }}
                     className="bg-gray-500 text-white px-6 py-2.5 rounded-lg hover:bg-gray-600 font-[Roboto] text-sm transition-colors"
                   >
@@ -509,24 +753,32 @@ export function ProposalForm({ onBack, onSave, editingProposal }: ProposalFormPr
           steps={[
             {
               title: "Tentang Form Usulan",
-              description: "Form ini digunakan untuk mengajukan proposal tugas akhir. Lengkapi semua field yang diperlukan termasuk judul, abstrak, kategori, dan dosen pembimbing. Anda dapat menyimpan sebagai draft jika belum siap submit, atau langsung submit untuk proses persetujuan.",
-              imageUrl: "https://images.unsplash.com/photo-1721379805142-faaa28ab1424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb3JtJTIwZG9jdW1lbnQlMjB3cml0aW5nfGVufDF8fHx8MTc2MzcxMjQ2Mnww&ixlib=rb-4.1.0&q=80&w=1080"
+              description:
+                "Form ini digunakan untuk mengajukan proposal tugas akhir. Lengkapi semua field yang diperlukan termasuk judul, abstrak, kategori, dan dosen pembimbing. Anda dapat menyimpan sebagai draft jika belum siap submit, atau langsung submit untuk proses persetujuan.",
+              imageUrl:
+                "https://images.unsplash.com/photo-1721379805142-faaa28ab1424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb3JtJTIwZG9jdW1lbnQlMjB3cml0aW5nfGVufDF8fHx8MTc2MzcxMjQ2Mnww&ixlib=rb-4.1.0&q=80&w=1080",
             },
             {
               title: "Pilih Dosen Pembimbing",
-              description: "Pilih Dosen Pembimbing 1 (wajib) dan Dosen Pembimbing 2 (opsional) dari dropdown. Pastikan dosen yang dipilih sesuai dengan bidang penelitian Anda. Konsultasikan terlebih dahulu dengan dosen sebelum mengajukan proposal.",
-              imageUrl: "https://images.unsplash.com/photo-1758873271761-6cfe9b4f000c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXNlYXJjaCUyMHN1cGVydmlzb3IlMjBtZWV0aW5nfGVufDF8fHx8MTc2MzcxMjQ2Nnww&ixlib=rb-4.1.0&q=80&w=1080"
+              description:
+                "Pilih Dosen Pembimbing 1 (wajib) dan Dosen Pembimbing 2 (opsional) dari dropdown. Pastikan dosen yang dipilih sesuai dengan bidang penelitian Anda. Konsultasikan terlebih dahulu dengan dosen sebelum mengajukan proposal.",
+              imageUrl:
+                "https://images.unsplash.com/photo-1758873271761-6cfe9b4f000c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXNlYXJjaCUyMHN1cGVydmlzb3IlMjBtZWV0aW5nfGVufDF8fHx8MTc2MzcxMjQ2Nnww&ixlib=rb-4.1.0&q=80&w=1080",
             },
             {
               title: "Upload File Proposal",
-              description: "Unggah file proposal tugas akhir dalam format PDF atau DOCX (maksimal 10MB). File harus berisi outline penelitian, metodologi, dan referensi yang relevan. Pastikan file sudah lengkap sebelum mengumpulkan proposal.",
-              imageUrl: "https://images.unsplash.com/photo-1715520530023-cc8a1b2044ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaWxlJTIwdXBsb2FkJTIwZG9jdW1lbnR8ZW58MXx8fHwxNzYzNzEyNDcwfDA&ixlib=rb-4.1.0&q=80&w=1080"
+              description:
+                "Unggah file proposal tugas akhir dalam format PDF atau DOCX (maksimal 10MB). File harus berisi outline penelitian, metodologi, dan referensi yang relevan. Pastikan file sudah lengkap sebelum mengumpulkan proposal.",
+              imageUrl:
+                "https://images.unsplash.com/photo-1715520530023-cc8a1b2044ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaWxlJTIwdXBsb2FkJTIwZG9jdW1lbnR8ZW58MXx8fHwxNzYzNzEyNDcwfDA&ixlib=rb-4.1.0&q=80&w=1080",
             },
             {
               title: "Submit & Persetujuan",
-              description: "Setelah semua field terisi, klik 'Kumpulkan' untuk mengirim proposal. Proposal akan masuk ke proses persetujuan oleh Pembimbing 1, Pembimbing 2, dan Admin. Anda dapat memantau progress approval dengan deadline 3 hari di halaman Tugas Akhir.",
-              imageUrl: "https://images.unsplash.com/photo-1620632889724-f1ddc7841c40?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcHByb3ZhbCUyMGNoZWNrbGlzdCUyMHN1Y2Nlc3N8ZW58MXx8fHwxNzYzNjM5MTIzfDA&ixlib=rb-4.1.0&q=80&w=1080"
-            }
+              description:
+                "Setelah semua field terisi, klik 'Kumpulkan' untuk mengirim proposal. Proposal akan masuk ke proses persetujuan oleh Pembimbing 1, Pembimbing 2, dan Admin. Anda dapat memantau progress approval dengan deadline 3 hari di halaman Tugas Akhir.",
+              imageUrl:
+                "https://images.unsplash.com/photo-1620632889724-f1ddc7841c40?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcHByb3ZhbCUyMGNoZWNrbGlzdCUyMHN1Y2Nlc3N8ZW58MXx8fHwxNzYzNjM5MTIzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+            },
           ]}
         />
       </div>
