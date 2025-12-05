@@ -16,7 +16,7 @@
   - no fix alur logic bimbingan aktif
   - no fix alur logic sidang
   - no fix penilaian
-  - no fix penawaran topic
+  - no fix penawaran topik
 
   Admin 
   - no fix penjadwalan
