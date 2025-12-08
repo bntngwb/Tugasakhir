@@ -8,10 +8,9 @@
   ## Project status
 
   Mahasiswa 
-  - no fix hubungi admin ❌
-  - no fix penawaran topik ❌
+  - fix penawaran topik ✅
   - fix form tugas akhir ✅
-  - fix approlval ✅
+  - fix aproval ✅
 
   Dosen 
   - no fix integerating data ❌
@@ -24,3 +23,4 @@
   Admin 
   - no fix penjadwalan ❌
   - no fix ubah nilai ❌
+  - fix page jadwal sidang ✅
