@@ -21,6 +21,6 @@
   - no fix kalender sidang ❌
 
   Admin 
-  - no fix penjadwalan ❌
+  - no fix penjadwalan ✅
   - no fix ubah nilai ❌
   - fix page jadwal sidang ✅
