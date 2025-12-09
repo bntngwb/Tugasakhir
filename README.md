@@ -22,5 +22,5 @@
 
   Admin 
   - no fix penjadwalan ✅
-  - no fix ubah nilai ❌
+  - no fix ubah nilai ✅
   - fix page jadwal sidang ✅
