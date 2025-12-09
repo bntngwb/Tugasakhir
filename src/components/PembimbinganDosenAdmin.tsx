@@ -159,13 +159,6 @@ export function PembimbinganDosenAdmin() {
             </div>
           </div>
 
-          {/* Info Notice */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-blue-800 font-[Roboto]">
-              ℹ️ Prodi reguler dan prodi internasional.
-            </p>
-          </div>
-
           {/* Table Controls */}
           <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
             <div className="flex items-center justify-between">
