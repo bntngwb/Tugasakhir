@@ -14,14 +14,13 @@
 
   Dosen 
   - no fix integerating data ❌
-  - fix alur logic bimbingan aktif ✅
-  - no fix alur logic sidang  ✅
-  - no fix penilaian  ✅
-  - fix penawaran topik ✅
-  - fix kalender sidang ✅
+  - no fix alur logic bimbingan aktif ✅
+  - no fix alur logic sidang ❌
+  - no fix penilaian ❌
+  - no fix penawaran topik ❌
+  - no fix kalender sidang ❌
 
   Admin 
-  - fix penjadwalan ✅
-  - fix ubah nilai ✅
+  - no fix penjadwalan ✅
+  - no fix ubah nilai ❌
   - fix page jadwal sidang ✅
-  - no fix alokasi pembimbing ❌
