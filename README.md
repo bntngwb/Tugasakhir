@@ -13,14 +13,15 @@
   - fix aproval ✅
 
   Dosen 
-  - no fix integerating data ❌
-  - no fix alur logic bimbingan aktif ✅
-  - no fix alur logic sidang ❌
-  - no fix penilaian ❌
-  - no fix penawaran topik ❌
-  - no fix kalender sidang ❌
+  - fix integerating data ❌
+  - fix alur logic bimbingan aktif ✅
+  - fix alur logic sidang ✅
+  - fix penilaian ✅
+  - fix penawaran topik ✅
+  - fix kalender sidang ✅
 
   Admin 
-  - no fix penjadwalan ✅
-  - no fix ubah nilai ❌
+  - fix penjadwalan ✅
+  - fix ubah nilai ✅
   - fix page jadwal sidang ✅
+  - no fix alokasi dosen ❌
