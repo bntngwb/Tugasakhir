@@ -15,8 +15,8 @@
   Dosen 
   - no fix integerating data ❌
   - fix alur logic bimbingan aktif ✅
-  - no fix alur logic sidang ❌
-  - no fix penilaian ❌
+  - no fix alur logic sidang  ✅
+  - no fix penilaian  ✅
   - fix penawaran topik ✅
   - fix kalender sidang ✅
 
