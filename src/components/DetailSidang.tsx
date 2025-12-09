@@ -1,8 +1,19 @@
 import { useState } from "react";
-import { 
-  ArrowLeft, Calendar, MapPin, Users, FileText, Clock, 
-  Plus, Check, Upload, Eye, Download, AlertCircle, BookOpen,
-  X, Paperclip
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Users,
+  FileText,
+  Clock,
+  Plus,
+  Check,
+  Download,
+  AlertCircle,
+  BookOpen,
+  X,
+  Paperclip,
+  CheckCircle2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner@2.0.3";
@@ -30,98 +41,168 @@ interface NilaiItem {
   aspek: string;
   indikator: string;
   nilai: number;
-  bobot: string;
+  bobot: string; // "20%"
   hasil: number;
 }
+
+type StatusPengerjaan =
+  | "Menunggu Sidang"
+  | "Dalam Sidang"
+  | "Perlu Dinilai"
+  | "Pengerjaan Revisi"
+  | "Perlu Approval"
+  | "Perlu Nilai Permanen"
+  | "Selesai";
+
+type Role = "Ketua Sidang" | "Penguji" | "Pembimbing";
 
 export function DetailSidang({ sidangId }: DetailSidangProps) {
   const [showTambahRevisi, setShowTambahRevisi] = useState(false);
   const [newRevisi, setNewRevisi] = useState("");
-  const [selectedPenguji, setSelectedPenguji] = useState("Dr. Anny Yuniarti, S.Kom., M.Comp.Sc.");
+  const [selectedPenguji, setSelectedPenguji] = useState(
+    "Dr. Anny Yuniarti, S.Kom., M.Comp.Sc."
+  );
   const [revisiFile, setRevisiFile] = useState<File | null>(null);
+
   const [showFormNilai, setShowFormNilai] = useState(false);
+  const [nilaiMode, setNilaiMode] = useState<"sementara" | "final">(
+    "sementara"
+  );
+
   const [showKeputusanSidang, setShowKeputusanSidang] = useState(false);
-  const [hasilSidang, setHasilSidang] = useState("Lulus");
-  const [kehadiran, setKehadiran] = useState("Hadir");
-  
+  const [hasilSidang, setHasilSidang] = useState<
+    | ""
+    | "Diterima"
+    | "Diterima dengan revisi minor"
+    | "Diterima dengan revisi mayor"
+    | "Ditolak"
+  >("");
+  const [kehadiran, setKehadiran] = useState<
+    "Hadir" | "Tidak Hadir" | "Izin / Sakit"
+  >("Hadir");
+
+  const [hasSavedTemporaryScore, setHasSavedTemporaryScore] = useState(false);
+  const [hasSavedFinalScore, setHasSavedFinalScore] = useState(false);
+  const [hasSavedSidangDecision, setHasSavedSidangDecision] =
+    useState(false);
+  const [hasApprovedRevision, setHasApprovedRevision] = useState(false);
+
+  const [temporaryScore, setTemporaryScore] = useState<number | null>(null);
+  const [temporaryGrade, setTemporaryGrade] = useState<string | null>(null);
+  const [finalScore, setFinalScore] = useState<number | null>(null);
+  const [finalGrade, setFinalGrade] = useState<string | null>(null);
+
+  const [lastTemporarySaveAt, setLastTemporarySaveAt] =
+    useState<Date | null>(null);
+
+  const [isRevisiApproved, setIsRevisiApproved] = useState(false);
+
   const [revisiList, setRevisiList] = useState<Revisi[]>([
     {
       id: 1,
       pengirim: "Dr. Anny Yuniarti, S.Kom., M.Comp.Sc.",
       tanggal: "20 Januari 2026",
-      isi: "Perjelas latar belakang dan tambahkan perbandingan dengan metode deteksi intrusi konvensional."
-    }
+      isi: "Perjelas latar belakang dan tambahkan perbandingan dengan metode deteksi intrusi konvensional.",
+    },
   ]);
 
   const [nilaiItems, setNilaiItems] = useState<NilaiItem[]>([
     {
       no: 1,
       aspek: "Materi",
-      indikator: "Kualitas konten (1) Kesesuaian judul dengan materi dan dengan permasalahan dan dengan permasalahan",
+      indikator:
+        "Kualitas konten (1) Kesesuaian judul dengan materi dan dengan permasalahan",
       nilai: 0,
       bobot: "20%",
-      hasil: 0
+      hasil: 0,
     },
     {
       no: 2,
       aspek: "Materi",
-      indikator: "Kualitas konten (2) Ketepatan pemilihan dasar teori dan metode penelitian yang relevan untuk mengkaji rumusan masalah dan mencapai tujuan penelitian",
+      indikator:
+        "Kualitas konten (2) Ketepatan pemilihan dasar teori dan metode penelitian",
       nilai: 0,
       bobot: "20%",
-      hasil: 0
+      hasil: 0,
     },
     {
       no: 3,
       aspek: "Materi",
-      indikator: "Kualitas konten (3) Ketepatan merumuskan teknik pengumpulan data dan analisis data untuk menjawab rumusan masalah dan mencapai tujuan penelitian (sistematika penelitian, timeline, dll)",
+      indikator:
+        "Kualitas konten (3) Ketepatan perumusan teknik pengumpulan data dan analisis data",
       nilai: 0,
       bobot: "20%",
-      hasil: 0
+      hasil: 0,
     },
     {
       no: 4,
       aspek: "Materi",
-      indikator: "Kualitas konten (4) Tata tulis terstruktur secara rapi dan sistematis sesuai pedoman penulisan proposal TA di ITS",
+      indikator:
+        "Kualitas konten (4) Tata tulis terstruktur secara rapi dan sistematis",
       nilai: 0,
       bobot: "10%",
-      hasil: 0
+      hasil: 0,
     },
     {
       no: 5,
-      aspek: "Presentasi",
-      indikator: "Kualitas konten (5) Potensi proposal penelitian mengembangkan ide-ide baru untuk membantu menemukan penyelesaian persoalan-persoalan pembangunan",
+      aspek: "Materi",
+      indikator:
+        "Kualitas konten (5) Potensi proposal mengembangkan ide baru untuk pemecahan masalah",
       nilai: 0,
       bobot: "5%",
-      hasil: 0
+      hasil: 0,
     },
     {
       no: 6,
       aspek: "Presentasi",
-      indikator: "Presentasi & Diskusi (1) Ketepatan dan kualitas (sistematika & estetika) materi presentasi",
+      indikator:
+        "Presentasi & Diskusi (1) Ketepatan dan kualitas materi presentasi",
       nilai: 0,
       bobot: "10%",
-      hasil: 0
+      hasil: 0,
     },
     {
       no: 7,
       aspek: "Presentasi",
-      indikator: "Presentasi & Diskusi (2) Kemampuan menyampaikan argumentasi (iniasi / menggapai pertanyaan)",
+      indikator:
+        "Presentasi & Diskusi (2) Kemampuan menyampaikan argumentasi",
       nilai: 0,
       bobot: "10%",
-      hasil: 0
+      hasil: 0,
     },
     {
       no: 8,
       aspek: "Presentasi",
-      indikator: "Presentasi & Diskusi (3) Sikap dan penampilan selama presentasi",
+      indikator: "Presentasi & Diskusi (3) Sikap dan penampilan",
       nilai: 0,
       bobot: "5%",
-      hasil: 0
-    }
+      hasil: 0,
+    },
   ]);
 
-  // Mock data - dalam production akan fetch berdasarkan sidangId
-  // Simulasi data berbeda berdasarkan ID
+  // =====================================================
+  // FORCE RESET STATUS DENGAN VERSION (tanpa DevTools)
+  // Ganti CURRENT_VERSION jika ingin reset semua status.
+  // =====================================================
+  if (typeof window !== "undefined") {
+    const VERSION_KEY = "sidang-status-version";
+    const CURRENT_VERSION = "1"; // ubah angka ini untuk reset semua status
+    const storedVersion = window.sessionStorage.getItem(VERSION_KEY);
+
+    if (storedVersion !== CURRENT_VERSION) {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < window.sessionStorage.length; i++) {
+        const key = window.sessionStorage.key(i);
+        if (key && key.startsWith("sidang-status-")) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => window.sessionStorage.removeItem(k));
+      window.sessionStorage.setItem(VERSION_KEY, CURRENT_VERSION);
+    }
+  }
+
+  // Mock data sidang berdasarkan id
   const getSidangData = (id: string) => {
     const dataMap: Record<string, any> = {
       "1": {
@@ -130,23 +211,24 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
         nrp: "5025221034",
         jenisSidang: "Sidang Proposal",
         periode: "S1",
-        statusPengerjaan: "Perlu Dinilai",
-        statusRole: "Pembimbing",
+        statusPengerjaan: "Perlu Dinilai" as StatusPengerjaan,
+        statusRole: "Pembimbing" as Role,
         tanggal: "Senin, 12 Januari 2026",
         waktu: "09.00 - 11.00 WIB",
         lokasi: "Ruang Sidang 1 Departemen Informatika",
-        judul: "PENERAPAN VISION TRANSFORMER UNTUK DETEKSI ANOMALI JARINGAN KOMPUTER SKALA BESAR",
+        judul:
+          "PENERAPAN VISION TRANSFORMER UNTUK DETEKSI ANOMALI JARINGAN KOMPUTER SKALA BESAR",
         kategori: "Keamanan Jaringan",
-        abstrak: "Penelitian ini bertujuan mengimplementasikan Vision Transformer (ViT) untuk mendeteksi pola anomali pada traffic jaringan komputer berskala besar.",
+        abstrak:
+          "Penelitian ini bertujuan mengimplementasikan Vision Transformer (ViT) untuk mendeteksi pola anomali pada traffic jaringan komputer berskala besar.",
         pembimbing1: "Dr. Ahmad Saikhu, S.T., M.T.",
         dosenPenguji: [
           "Dr. Anny Yuniarti, S.Kom., M.Comp.Sc.",
           "Dr. Budi Rahardjo, S.Kom., M.Sc.",
-          "Dr. Citra Dewi, S.T., M.T."
+          "Dr. Citra Dewi, S.T., M.T.",
         ],
         proposalFile: "Proposal_5025221034.pdf",
         batasRevisi: "20 Januari 2026",
-        statusRevisi: "Belum Lewat"
       },
       "2": {
         id: "2",
@@ -154,23 +236,24 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
         nrp: "5025223002",
         jenisSidang: "Sidang Akhir",
         periode: "S1",
-        statusPengerjaan: "Perlu Approval",
-        statusRole: "Ketua Sidang",
+        statusPengerjaan: "Perlu Approval" as StatusPengerjaan,
+        statusRole: "Ketua Sidang" as Role,
         tanggal: "Selasa, 15 Januari 2026",
         waktu: "13.00 - 15.00 WIB",
         lokasi: "Ruang Sidang 2 Departemen Informatika",
-        judul: "RANCANG BANGUN SISTEM MONITORING BIMBINGAN TUGAS AKHIR BERBASIS WEB",
+        judul:
+          "RANCANG BANGUN SISTEM MONITORING BIMBINGAN TUGAS AKHIR BERBASIS WEB",
         kategori: "Sistem Informasi",
-        abstrak: "Penelitian ini mengembangkan sistem monitoring bimbingan tugas akhir berbasis web untuk meningkatkan efisiensi proses bimbingan.",
+        abstrak:
+          "Penelitian ini mengembangkan sistem monitoring bimbingan tugas akhir berbasis web untuk meningkatkan efisiensi proses bimbingan.",
         pembimbing1: "Dr. Dewi Lestari, S.Kom., M.T.",
         dosenPenguji: [
           "Dr. Eko Prasetyo, S.T., M.Sc.",
           "Dr. Fitri Handayani, S.Kom., M.Comp.Sc.",
-          "Dr. Gunawan Wibisono, S.T., M.T."
+          "Dr. Gunawan Wibisono, S.T., M.T.",
         ],
         proposalFile: "Proposal_5025223002.pdf",
         batasRevisi: "22 Januari 2026",
-        statusRevisi: "Belum Lewat"
       },
       "3": {
         id: "3",
@@ -178,24 +261,24 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
         nrp: "5025201015",
         jenisSidang: "Sidang Proposal",
         periode: "S1",
-        statusPengerjaan: "Dalam Sidang",
-        statusRole: "Penguji",
+        statusPengerjaan: "Dalam Sidang" as StatusPengerjaan,
+        statusRole: "Penguji" as Role,
         tanggal: "Rabu, 10 Januari 2026",
         waktu: "10.00 - 12.00 WIB",
         lokasi: "Ruang Sidang 3 Departemen Informatika",
         judul: "Aplikasi Mobile untuk Monitoring Kesehatan Lansia",
         kategori: "Mobile Computing",
-        abstrak: "Aplikasi mobile berbasis Android untuk monitoring kesehatan lansia dengan fitur reminder dan emergency call.",
+        abstrak:
+          "Aplikasi mobile berbasis Android untuk monitoring kesehatan lansia dengan fitur reminder dan emergency call.",
         pembimbing1: "Dr. Hadi Santoso, S.Kom., M.T.",
         dosenPenguji: [
           "Dr. Indra Gunawan, S.T., M.Sc.",
           "Dr. Joko Purnomo, S.Kom., M.Comp.Sc.",
-          "Dr. Kartika Sari, S.T., M.T."
+          "Dr. Kartika Sari, S.T., M.T.",
         ],
         proposalFile: "Proposal_5025201015.pdf",
         batasRevisi: "17 Januari 2026",
-        statusRevisi: "Belum Lewat"
-      }
+      },
     };
 
     return dataMap[id] || dataMap["1"];
@@ -203,22 +286,47 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
 
   const sidangData = getSidangData(sidangId);
 
+  // status awal baca dari sessionStorage jika sudah pernah diubah
+  const initialStatusFromStorage =
+    typeof window !== "undefined"
+      ? (window.sessionStorage.getItem(
+          `sidang-status-${sidangId}`
+        ) as StatusPengerjaan | null)
+      : null;
+
+  const [statusPengerjaan, setStatusPengerjaan] =
+    useState<StatusPengerjaan>(
+      initialStatusFromStorage ?? sidangData.statusPengerjaan
+    );
+
   const fileRevisiList: FileRevisi[] = [
     {
       id: 1,
       nama: "Revisi_Proposal_Budi_v2.pdf",
       tanggalUpload: "18 Januari 2026",
-      size: "2.4 MB"
+      size: "2.4 MB",
     },
     {
       id: 2,
       nama: "Lampiran_Revisi.docx",
       tanggalUpload: "18 Januari 2026",
-      size: "1.1 MB"
-    }
+      size: "1.1 MB",
+    },
   ];
 
+  const setStatusAndPersist = (status: StatusPengerjaan) => {
+    setStatusPengerjaan(status);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(`sidang-status-${sidangId}`, status);
+    }
+  };
+
   const handleTambahRevisi = () => {
+    if (hasApprovedRevision) {
+      toast.error("Revisi sudah disetujui, catatan tidak dapat diubah.");
+      return;
+    }
+
     if (!newRevisi.trim()) {
       toast.error("Isi revisi tidak boleh kosong");
       return;
@@ -227,12 +335,12 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
     const revisi: Revisi = {
       id: revisiList.length + 1,
       pengirim: selectedPenguji,
-      tanggal: new Date().toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
+      tanggal: new Date().toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
       }),
-      isi: newRevisi
+      isi: newRevisi,
     };
 
     setRevisiList([...revisiList, revisi]);
@@ -248,25 +356,23 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
     }
   };
 
-  const handleApproveRevisi = () => {
-    toast.success("Revisi berhasil disetujui");
-  };
-
   const handleNilaiChange = (index: number, nilai: number) => {
-    // Validate range 0-100
+    if (isNaN(nilai)) nilai = 0;
     if (nilai < 0) nilai = 0;
     if (nilai > 100) nilai = 100;
-    
-    const newNilaiItems = [...nilaiItems];
-    newNilaiItems[index].nilai = nilai;
-    // Calculate hasil based on bobot
-    const bobotNum = parseFloat(newNilaiItems[index].bobot) / 100;
-    newNilaiItems[index].hasil = nilai * bobotNum;
-    setNilaiItems(newNilaiItems);
+
+    const newItems = [...nilaiItems];
+    newItems[index].nilai = nilai;
+
+    const bobotNum = parseFloat(newItems[index].bobot) / 100;
+    newItems[index].hasil = nilai * bobotNum;
+
+    setNilaiItems(newItems);
   };
 
   const calculateTotalNilai = () => {
-    return nilaiItems.reduce((sum, item) => sum + item.hasil, 0).toFixed(2);
+    const total = nilaiItems.reduce((sum, item) => sum + item.hasil, 0);
+    return total;
   };
 
   const getGradeFromScore = (score: number) => {
@@ -275,66 +381,287 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
     if (score >= 66 && score < 76) return "B";
     if (score >= 61 && score < 66) return "BC";
     if (score >= 51 && score < 61) return "C";
-    if (score >= 41 && score < 51) return "D";
-    return "E";
+    if (score >= 0 && score < 51) return "Tidak Lulus";
+    return "-";
   };
 
   const handleSimpanNilai = () => {
-    toast.success("Nilai berhasil disimpan");
+    const total = parseFloat(calculateTotalNilai().toFixed(2));
+    const grade = getGradeFromScore(total);
+
+    if (nilaiMode === "sementara") {
+      setTemporaryScore(total);
+      setTemporaryGrade(grade);
+      setHasSavedTemporaryScore(true);
+      setLastTemporarySaveAt(new Date());
+      toast.success(
+        `Nilai sementara disimpan (${total.toFixed(2)} – ${grade})`
+      );
+
+      // RULE: Perlu Dinilai (awal) -> Pengerjaan Revisi
+      if (statusPengerjaan === "Perlu Dinilai" && !hasApprovedRevision) {
+        setStatusAndPersist("Pengerjaan Revisi");
+      }
+    } else {
+      setFinalScore(total);
+      setFinalGrade(grade);
+      setHasSavedFinalScore(true);
+      toast.success(
+        `Nilai akhir disimpan (${total.toFixed(2)} – ${grade})`
+      );
+    }
+
     setShowFormNilai(false);
   };
 
-  const handleSimpanPermanen = () => {
-    toast.success("Nilai berhasil disimpan secara permanen");
-  };
-
   const handleSimpanKeputusan = () => {
-    toast.success(`Keputusan sidang berhasil disimpan: ${hasilSidang}, Kehadiran: ${kehadiran}`);
+    if (!hasilSidang) {
+      toast.error("Silakan pilih hasil sidang terlebih dahulu");
+      return;
+    }
+    setHasSavedSidangDecision(true);
+    toast.success("Hasil sidang berhasil disimpan");
     setShowKeputusanSidang(false);
   };
 
-  const renderButtonsByRole = () => {
-    if (sidangData.statusRole === "Ketua Sidang") {
-      return (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <button 
-            onClick={() => setShowKeputusanSidang(true)}
-            className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-[Roboto] text-sm"
-          >
-            Keputusan Sidang
-          </button>
-          <button 
-            onClick={() => setShowFormNilai(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
-          >
-            Beri Nilai
-          </button>
-          <button 
-            onClick={handleSimpanPermanen}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-[Roboto] text-sm"
-          >
-            Simpan Permanen
-          </button>
-        </div>
+  // Selesai pada tahap Perlu Nilai Permanen (setelah revisi di-approve)
+  const handleSimpanPermanen = () => {
+    const role = sidangData.statusRole as Role;
+
+    if (statusPengerjaan !== "Perlu Nilai Permanen") {
+      toast.error(
+        "Penyimpanan permanen hanya dapat dilakukan pada status 'Perlu Nilai Permanen'."
       );
-    } else if (sidangData.statusRole === "Penguji" || sidangData.statusRole === "Pembimbing") {
+      return;
+    }
+
+    if (!hasApprovedRevision) {
+      toast.error("Harap approve revisi mahasiswa terlebih dahulu.");
+      return;
+    }
+
+    if (!hasSavedFinalScore) {
+      toast.error("Harap simpan nilai akhir terlebih dahulu.");
+      return;
+    }
+
+    if (role === "Ketua Sidang" && !hasSavedSidangDecision) {
+      toast.error("Harap simpan keputusan sidang terlebih dahulu.");
+      return;
+    }
+
+    setStatusAndPersist("Selesai");
+    toast.success("Sidang selesai. Nilai & keputusan disimpan permanen.");
+  };
+
+  const handleApproveRevisi = () => {
+    setIsRevisiApproved(true);
+    setHasApprovedRevision(true);
+    setShowTambahRevisi(false);
+    setNewRevisi("");
+    setRevisiFile(null);
+    toast.success("Revisi mahasiswa disetujui");
+
+    // Setelah approve revisi → status jadi "Perlu Nilai Permanen"
+    // (tetap akan dihitung di kartu/filter 'Perlu Dinilai' di halaman SidangDosen)
+    setStatusAndPersist("Perlu Nilai Permanen");
+  };
+
+  const role = sidangData.statusRole as Role;
+
+  const renderButtonsByRole = () => {
+    // Menunggu / Dalam Sidang -> view only
+    if (
+      statusPengerjaan === "Menunggu Sidang" ||
+      statusPengerjaan === "Dalam Sidang"
+    ) {
+      return null;
+    }
+
+    // Tahap PERLU DINILAI (awal, sebelum revisi)
+    if (statusPengerjaan === "Perlu Dinilai") {
+      if (role === "Ketua Sidang") {
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              onClick={() => setShowKeputusanSidang(true)}
+              className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-[Roboto] text-sm"
+            >
+              Keputusan Sidang (Draft)
+            </button>
+            <button
+              onClick={() => {
+                setNilaiMode("sementara");
+                setShowFormNilai(true);
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
+            >
+              Nilai Sementara
+            </button>
+          </div>
+        );
+      }
+
+      // Penguji / Pembimbing – awal
       return (
-        <div className="grid grid-cols-2 gap-3">
-          <button 
-            onClick={() => setShowFormNilai(true)}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onClick={() => {
+              setNilaiMode("sementara");
+              setShowFormNilai(true);
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
           >
-            Beri Nilai
+            Nilai Sementara
           </button>
-          <button 
-            onClick={handleSimpanPermanen}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-[Roboto] text-sm"
+          <button
+            onClick={() => {
+              if (!hasSavedTemporaryScore) {
+                toast.error(
+                  "Harap simpan nilai sementara terlebih dahulu."
+                );
+                return;
+              }
+              toast.success("Penilaian sementara Anda tersimpan.");
+            }}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-[Roboto] text-sm"
           >
-            Simpan Nilai
+            Kirim Penilaian
           </button>
         </div>
       );
     }
+
+    // Tahap PENGERJAAN REVISI
+    if (statusPengerjaan === "Pengerjaan Revisi") {
+      return (
+        <div className="px-4 py-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800 font-[Roboto]">
+          Mahasiswa sedang mengerjakan revisi. Anda masih dapat menambahkan
+          catatan revisi tambahan hingga batas waktu yang ditentukan.
+        </div>
+      );
+    }
+
+    // Tahap PERLU APPROVAL (revisi sudah dikumpulkan, menunggu approve)
+    if (statusPengerjaan === "Perlu Approval") {
+      return (
+        <div className="px-4 py-3 bg-yellow-50 border border-yellow-100 rounded-lg text-sm text-yellow-800 font-[Roboto]">
+          Menunggu persetujuan revisi dari dosen penguji/pembimbing. Setelah
+          revisi disetujui, status akan berubah menjadi{" "}
+          <span className="font-semibold">Perlu Nilai Permanen</span> untuk
+          penilaian akhir.
+        </div>
+      );
+    }
+
+    // Tahap PERLU NILAI PERMANEN (setelah revisi di-approve)
+    if (statusPengerjaan === "Perlu Nilai Permanen") {
+      if (role === "Ketua Sidang") {
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button
+              onClick={() => setShowKeputusanSidang(true)}
+              className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-[Roboto] text-sm"
+            >
+              Keputusan Sidang
+            </button>
+            <button
+              onClick={() => {
+                setNilaiMode("final");
+                setShowFormNilai(true);
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
+            >
+              Nilai Akhir
+            </button>
+            <button
+              onClick={handleSimpanPermanen}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-[Roboto] text-sm"
+            >
+              Simpan Permanen & Selesaikan
+            </button>
+          </div>
+        );
+      }
+
+      // Penguji / Pembimbing – fase akhir
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onClick={() => {
+              setNilaiMode("final");
+              setShowFormNilai(true);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
+          >
+            Nilai Akhir
+          </button>
+          <button
+            onClick={() => {
+              if (!hasSavedFinalScore) {
+                toast.error(
+                  "Harap simpan nilai akhir terlebih dahulu."
+                );
+                return;
+              }
+              toast.success("Nilai akhir Anda disimpan permanen.");
+            }}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-[Roboto] text-sm"
+          >
+            Simpan Nilai Permanen
+          </button>
+        </div>
+      );
+    }
+
+    if (statusPengerjaan === "Selesai") {
+      return (
+        <div className="px-4 py-3 bg-green-50 border border-green-100 rounded-lg text-sm text-green-800 font-[Roboto]">
+          Sidang telah selesai. Semua nilai dan keputusan tersimpan permanen.
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const totalNilaiNow = parseFloat(calculateTotalNilai().toFixed(2));
+  const gradeNow = getGradeFromScore(totalNilaiNow);
+
+  // RINGKASAN NILAI DI HEADER
+  const renderHeaderScorePill = () => {
+    if (finalScore !== null && finalGrade) {
+      return (
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-200">
+          <span className="text-xs text-gray-500 font-[Roboto]">
+            Nilai Akhir
+          </span>
+          <span className="text-sm font-[Poppins] text-gray-900">
+            {finalScore.toFixed(2)}
+          </span>
+          <span className="text-xs font-[Poppins] text-green-700">
+            {finalGrade}
+          </span>
+        </div>
+      );
+    }
+
+    if (temporaryScore !== null && temporaryGrade) {
+      return (
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 border border-yellow-200">
+          <span className="text-xs text-gray-500 font-[Roboto]">
+            Nilai Sementara
+          </span>
+          <span className="text-sm font-[Poppins] text-gray-900">
+            {temporaryScore.toFixed(2)}
+          </span>
+          <span className="text-xs font-[Poppins] text-yellow-700">
+            {temporaryGrade}
+          </span>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -350,9 +677,9 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
             <ArrowLeft className="w-4 h-4" />
             Kembali ke Daftar Sidang
           </a>
-          
+
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-blue-600" />
@@ -362,16 +689,27 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                     {sidangData.jenisSidang} – {sidangData.nama}
                   </h1>
                   <p className="text-sm text-gray-600 font-[Roboto]">
-                    NRP {sidangData.nrp} • {sidangData.periode} • {sidangData.statusRole}
+                    NRP {sidangData.nrp} • {sidangData.periode} •{" "}
+                    {sidangData.statusRole}
                   </p>
                 </div>
               </div>
-              <span className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-[Roboto] border border-yellow-200">
-                {sidangData.statusPengerjaan}
-              </span>
+
+              <div className="flex flex-col items-end gap-2">
+                <span className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-[Roboto] border border-yellow-200">
+                  {statusPengerjaan}
+                </span>
+                {renderHeaderScorePill()}
+                {lastTemporarySaveAt && !finalScore && (
+                  <p className="text-[11px] text-gray-500 font-[Roboto]">
+                    Nilai sementara terakhir disimpan{" "}
+                    {lastTemporarySaveAt.toLocaleString("id-ID")}
+                  </p>
+                )}
+              </div>
             </div>
 
-            {renderButtonsByRole()}
+            <div className="mt-4">{renderButtonsByRole()}</div>
           </div>
         </div>
 
@@ -384,35 +722,45 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
 
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Judul</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Judul
+              </p>
               <p className="text-sm text-gray-800 font-[Roboto] font-semibold">
                 {sidangData.judul}
               </p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Kategori</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Kategori
+              </p>
               <p className="text-sm text-gray-800 font-[Roboto]">
                 {sidangData.kategori}
               </p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Abstrak</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Abstrak
+              </p>
               <p className="text-sm text-gray-700 font-[Roboto]">
                 {sidangData.abstrak}
               </p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Dosen Pembimbing 1</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Dosen Pembimbing 1
+              </p>
               <p className="text-sm text-gray-800 font-[Roboto]">
                 {sidangData.pembimbing1}
               </p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Berkas Proposal yang Dikumpulkan</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Berkas Proposal yang Dikumpulkan
+              </p>
               <div className="flex items-center gap-2">
                 <a
                   href="#"
@@ -435,184 +783,263 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
 
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Jenis / Jenjang</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Jenis / Jenjang
+              </p>
               <p className="text-sm text-gray-800 font-[Roboto]">
                 {sidangData.jenisSidang} • {sidangData.periode}
               </p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Posisi Dosen pada Sidang</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Posisi Dosen pada Sidang
+              </p>
               <p className="text-sm text-gray-800 font-[Roboto]">
                 {sidangData.statusRole}
               </p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Tanggal</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Tanggal
+              </p>
               <p className="text-sm text-gray-800 font-[Roboto]">
                 {sidangData.tanggal}
               </p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Waktu</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Waktu
+              </p>
               <p className="text-sm text-gray-800 font-[Roboto]">
                 {sidangData.waktu}
               </p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Lokasi</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Lokasi
+              </p>
               <p className="text-sm text-gray-800 font-[Roboto]">
                 {sidangData.lokasi}
               </p>
             </div>
 
             <div>
-              <p className="text-xs text-gray-600 font-[Roboto] mb-1">Dosen Penguji</p>
+              <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                Dosen Penguji
+              </p>
               <div className="space-y-1">
-                {sidangData.dosenPenguji.map((dosen, index) => (
-                  <p key={index} className="text-sm text-gray-800 font-[Roboto]">
-                    {index + 1}. {dosen}
-                  </p>
-                ))}
+                {sidangData.dosenPenguji.map(
+                  (dosen: string, index: number) => (
+                    <p
+                      key={index}
+                      className="text-sm text-gray-800 font-[Roboto]"
+                    >
+                      {index + 1}. {dosen}
+                    </p>
+                  )
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Catatan Revisi - ONLY show when status is "Perlu Dinilai" */}
-        {sidangData.statusPengerjaan === "Perlu Dinilai" && (
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-gray-800 font-[Poppins] flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Catatan Revisi
-              </h2>
-              <button
-                onClick={() => setShowTambahRevisi(!showTambahRevisi)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Tambah Revisi
-              </button>
-            </div>
+        {/* Catatan Revisi */}
+        {statusPengerjaan !== "Menunggu Sidang" &&
+          statusPengerjaan !== "Dalam Sidang" && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-gray-800 font-[Poppins] flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Catatan Revisi
+                </h2>
 
-            <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg mb-4">
-              <AlertCircle className="w-5 h-5 text-orange-600" />
-              <p className="text-sm text-orange-700 font-[Roboto]">
-                <span className="font-semibold">Batas penambahan revisi:</span> {sidangData.batasRevisi}
-              </p>
-            </div>
-
-            <AnimatePresence>
-              {showTambahRevisi && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg"
-                >
-                  <div className="mb-3">
-                    <label className="block text-sm text-gray-700 font-[Roboto] mb-2">
-                      Penguji / Pembimbing
-                    </label>
-                    <select
-                      value={selectedPenguji}
-                      onChange={(e) => setSelectedPenguji(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-[Roboto] text-sm"
-                    >
-                      <option value="Dr. Anny Yuniarti, S.Kom., M.Comp.Sc.">Dr. Anny Yuniarti, S.Kom., M.Comp.Sc.</option>
-                      <option value="Dr. Budi Rahardjo, S.Kom., M.Sc.">Dr. Budi Rahardjo, S.Kom., M.Sc.</option>
-                      <option value="Dr. Citra Dewi, S.T., M.T.">Dr. Citra Dewi, S.T., M.T.</option>
-                    </select>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="block text-sm text-gray-700 font-[Roboto] mb-2">
-                      Catatan Revisi
-                    </label>
-                    <textarea
-                      value={newRevisi}
-                      onChange={(e) => setNewRevisi(e.target.value)}
-                      placeholder="Tuliskan poin-poin revisi yang perlu dikerjakan mahasiswa..."
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-[Roboto] text-sm resize-none"
-                      rows={4}
-                    />
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="block text-sm text-gray-700 font-[Roboto] mb-2">
-                      Unggah Berkas Revisi (opsional)
-                    </label>
-                    <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors w-fit">
-                      <Paperclip className="w-4 h-4 text-gray-600" />
-                      <span className="text-sm text-gray-600 font-[Roboto]">
-                        {revisiFile ? revisiFile.name : "Pilih berkas .pdf / .docx / .zip"}
-                      </span>
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.zip"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="flex gap-2">
+                {/* Tambah revisi hanya sebelum revisi di-approve */}
+                {!hasApprovedRevision &&
+                  (statusPengerjaan === "Perlu Dinilai" ||
+                    statusPengerjaan === "Pengerjaan Revisi") && (
                     <button
-                      onClick={handleTambahRevisi}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
+                      onClick={() =>
+                        setShowTambahRevisi((prev) => !prev)
+                      }
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
                     >
-                      Simpan Revisi
+                      <Plus className="w-4 h-4" />
+                      Tambah Revisi
                     </button>
-                    <button
-                      onClick={() => {
-                        setShowTambahRevisi(false);
-                        setNewRevisi("");
-                        setRevisiFile(null);
-                      }}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-[Roboto] text-sm"
-                    >
-                      Batal
-                    </button>
-                  </div>
-                </motion.div>
+                  )}
+              </div>
+
+              {/* Info banner */}
+              {statusPengerjaan === "Perlu Dinilai" && (
+                <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg mb-4">
+                  <AlertCircle className="w-5 h-5 text-orange-600" />
+                  <p className="text-sm text-orange-700 font-[Roboto]">
+                    <span className="font-semibold">
+                      Tahap penilaian dan penyusunan revisi.
+                    </span>{" "}
+                    Anda dapat menambahkan catatan revisi hingga{" "}
+                    {sidangData.batasRevisi}.
+                  </p>
+                </div>
               )}
-            </AnimatePresence>
 
-            <div className="space-y-3">
-              {revisiList.map((revisi) => (
-                <div key={revisi.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                  <div className="flex items-start gap-3 mb-2">
-                    <Users className="w-4 h-4 text-gray-600 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800 font-[Roboto] font-semibold">
-                        Pengirim / Pembimbing
+              {statusPengerjaan === "Pengerjaan Revisi" && (
+                <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg mb-4">
+                  <AlertCircle className="w-5 h-5 text-blue-600" />
+                  <p className="text-sm text-blue-700 font-[Roboto]">
+                    Mahasiswa sedang mengerjakan revisi. Anda masih dapat
+                    menambahkan catatan revisi tambahan hingga batas waktu
+                    yang ditentukan.
+                  </p>
+                </div>
+              )}
+
+              {statusPengerjaan === "Perlu Nilai Permanen" && (
+                <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg mb-4">
+                  <Check className="w-5 h-5 text-green-600" />
+                  <p className="text-sm text-green-700 font-[Roboto]">
+                    <span className="font-semibold">
+                      Revisi telah disetujui.
+                    </span>{" "}
+                    Catatan revisi bersifat arsip dan tidak dapat diubah.
+                  </p>
+                </div>
+              )}
+
+              <AnimatePresence>
+                {showTambahRevisi &&
+                  !hasApprovedRevision &&
+                  (statusPengerjaan === "Perlu Dinilai" ||
+                    statusPengerjaan === "Pengerjaan Revisi") && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg"
+                    >
+                      <div className="mb-3">
+                        <label className="block text-sm text-gray-700 font-[Roboto] mb-2">
+                          Penguji / Pembimbing
+                        </label>
+                        <select
+                          value={selectedPenguji}
+                          onChange={(e) =>
+                            setSelectedPenguji(e.target.value)
+                          }
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-[Roboto] text-sm"
+                        >
+                          <option value="Dr. Anny Yuniarti, S.Kom., M.Comp.Sc.">
+                            Dr. Anny Yuniarti, S.Kom., M.Comp.Sc.
+                          </option>
+                          <option value="Dr. Budi Rahardjo, S.Kom., M.Sc.">
+                            Dr. Budi Rahardjo, S.Kom., M.Sc.
+                          </option>
+                          <option value="Dr. Citra Dewi, S.T., M.T.">
+                            Dr. Citra Dewi, S.T., M.T.
+                          </option>
+                        </select>
+                      </div>
+
+                      <div className="mb-3">
+                        <label className="block text-sm text-gray-700 font-[Roboto] mb-2">
+                          Catatan Revisi
+                        </label>
+                        <textarea
+                          value={newRevisi}
+                          onChange={(e) =>
+                            setNewRevisi(e.target.value)
+                          }
+                          placeholder="Tuliskan poin-poin revisi yang perlu dikerjakan mahasiswa..."
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-[Roboto] text-sm resize-none"
+                          rows={4}
+                        />
+                      </div>
+
+                      <div className="mb-3">
+                        <label className="block text-sm text-gray-700 font-[Roboto] mb-2">
+                          Unggah Berkas Revisi (opsional)
+                        </label>
+                        <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors w-fit">
+                          <Paperclip className="w-4 h-4 text-gray-600" />
+                          <span className="text-sm text-gray-600 font-[Roboto]">
+                            {revisiFile
+                              ? revisiFile.name
+                              : "Pilih berkas .pdf / .docx / .zip"}
+                          </span>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.zip"
+                            onChange={handleFileChange}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleTambahRevisi}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
+                        >
+                          Simpan Revisi
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowTambahRevisi(false);
+                            setNewRevisi("");
+                            setRevisiFile(null);
+                          }}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-[Roboto] text-sm"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+              </AnimatePresence>
+
+              <div className="space-y-3">
+                {revisiList.map((revisi) => (
+                  <div
+                    key={revisi.id}
+                    className="p-4 bg-gray-50 border border-gray-200 rounded-lg"
+                  >
+                    <div className="flex items-start gap-3 mb-2">
+                      <Users className="w-4 h-4 text-gray-600 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-800 font-[Roboto] font-semibold">
+                          Penguji / Pembimbing
+                        </p>
+                        <p className="text-sm text-gray-700 font-[Roboto]">
+                          {revisi.pengirim}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="ml-7">
+                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                        Revisi #{revisi.id}
                       </p>
-                      <p className="text-sm text-gray-700 font-[Roboto]">
-                        {revisi.pengirim}
+                      <p className="text-sm text-gray-800 font-[Roboto] mb-2">
+                        {revisi.isi}
+                      </p>
+                      <p className="text-xs text-gray-500 font-[Roboto]">
+                        {revisi.tanggal}
                       </p>
                     </div>
                   </div>
-                  <div className="ml-7">
-                    <p className="text-xs text-gray-600 font-[Roboto] mb-1">Revisi #{revisi.id}</p>
-                    <p className="text-sm text-gray-800 font-[Roboto] mb-2">
-                      {revisi.isi}
-                    </p>
-                    <p className="text-xs text-gray-500 font-[Roboto]">
-                      {revisi.tanggal}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* File Revisi - ONLY show when status is "Perlu Approval" */}
-        {sidangData.statusPengerjaan === "Perlu Approval" && (
+        {/* File Revisi (Perlu Approval / setelah revisi) */}
+        {(statusPengerjaan === "Perlu Approval" ||
+          statusPengerjaan === "Perlu Dinilai" ||
+          statusPengerjaan === "Perlu Nilai Permanen" ||
+          statusPengerjaan === "Selesai") && (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <h2 className="text-gray-800 font-[Poppins] mb-4 flex items-center gap-2">
               <FileText className="w-5 h-5" />
@@ -621,7 +1048,10 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
 
             <div className="space-y-3 mb-4">
               {fileRevisiList.map((file) => (
-                <div key={file.id} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div
+                  key={file.id}
+                  className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg"
+                >
                   <div className="flex items-center gap-3">
                     <FileText className="w-5 h-5 text-blue-600" />
                     <div>
@@ -640,13 +1070,33 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
               ))}
             </div>
 
-            <button
-              onClick={handleApproveRevisi}
-              className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-[Roboto] flex items-center justify-center gap-2"
-            >
-              <Check className="w-5 h-5" />
-              Approve Revisi
-            </button>
+            {statusPengerjaan === "Perlu Approval" && (
+              <button
+                onClick={handleApproveRevisi}
+                disabled={isRevisiApproved}
+                className={`w-full px-4 py-3 rounded-lg font-[Roboto] flex items-center justify-center gap-2 text-sm ${
+                  isRevisiApproved
+                    ? "bg-green-50 text-green-700 border border-green-300 cursor-default"
+                    : "bg-white text-gray-800 border border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                <CheckCircle2
+                  className={`w-5 h-5 ${
+                    isRevisiApproved ? "text-green-600" : "text-gray-500"
+                  }`}
+                />
+                {isRevisiApproved
+                  ? "Revisi sudah disetujui"
+                  : "Setujui revisi mahasiswa"}
+              </button>
+            )}
+
+            {statusPengerjaan !== "Perlu Approval" && hasApprovedRevision && (
+              <div className="mt-2 text-xs text-green-700 font-[Roboto] flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                Revisi sudah disetujui.
+              </div>
+            )}
           </div>
         )}
 
@@ -658,7 +1108,7 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
         </footer>
       </div>
 
-      {/* Form Nilai Modal */}
+      {/* Modal Form Nilai */}
       <AnimatePresence>
         {showFormNilai && (
           <motion.div
@@ -675,11 +1125,18 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
             >
-              {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-xl text-gray-800 font-[Poppins]">
-                  Berikan Penilaian Sidang
-                </h2>
+                <div>
+                  <h2 className="text-xl text-gray-800 font-[Poppins]">
+                    {nilaiMode === "sementara"
+                      ? "Berikan Penilaian Sidang (Nilai Sementara)"
+                      : "Berikan Penilaian Sidang (Nilai Akhir)"}
+                  </h2>
+                  <p className="text-xs text-gray-500 font-[Roboto] mt-1">
+                    Input nilai 0–100, hasil dan indeks akan muncul secara
+                    otomatis.
+                  </p>
+                </div>
                 <button
                   onClick={() => setShowFormNilai(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -688,21 +1145,43 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                 </button>
               </div>
 
-              {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-                <p className="text-sm text-gray-600 font-[Roboto] mb-4">
-                  Masukkan nilai dengan parameter:
-                </p>
+              {/* Live score di header modal */}
+              <div className="px-6 pt-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200">
+                  <span className="text-xs text-gray-500 font-[Roboto]">
+                    Nilai saat ini
+                  </span>
+                  <span className="text-sm font-[Poppins] text-gray-900">
+                    {isNaN(totalNilaiNow)
+                      ? "--"
+                      : totalNilaiNow.toFixed(2)}
+                  </span>
+                  <span className="text-xs font-[Poppins] text-gray-700">
+                    {gradeNow}
+                  </span>
+                </div>
+              </div>
 
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="bg-gray-50">
-                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-[Roboto] text-gray-700 w-8">No</th>
-                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-[Roboto] text-gray-700">Aspek Penilaian & Indikator</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center text-xs font-[Roboto] text-gray-700 w-24">Nilai</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center text-xs font-[Roboto] text-gray-700 w-20">Bobot</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center text-xs font-[Roboto] text-gray-700 w-24">Hasil</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-[Roboto] text-gray-700 w-8">
+                          No
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-[Roboto] text-gray-700">
+                          Aspek Penilaian & Indikator
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center text-xs font-[Roboto] text-gray-700 w-24">
+                          Nilai
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center text-xs font-[Roboto] text-gray-700 w-20">
+                          Bobot
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center text-xs font-[Roboto] text-gray-700 w-24">
+                          Hasil
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -719,18 +1198,20 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                               <p className="text-xs font-[Roboto] text-gray-600">
                                 {item.indikator}
                               </p>
-                              <button className="text-xs text-blue-600 hover:text-blue-700 font-[Roboto] mt-1">
-                                ↓ Lihat indikator
-                              </button>
                             </div>
                           </td>
                           <td className="border border-gray-300 px-3 py-2">
                             <input
                               type="number"
-                              min="0"
-                              max="100"
+                              min={0}
+                              max={100}
                               value={item.nilai}
-                              onChange={(e) => handleNilaiChange(index, parseInt(e.target.value) || 0)}
+                              onChange={(e) =>
+                                handleNilaiChange(
+                                  index,
+                                  parseInt(e.target.value || "0", 10)
+                                )
+                              }
                               className="w-full px-2 py-1 border border-gray-300 rounded text-center text-sm font-[Roboto] focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </td>
@@ -745,8 +1226,15 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                     </tbody>
                     <tfoot>
                       <tr className="bg-gray-50">
-                        <td colSpan={4} className="border border-gray-300 px-3 py-2 text-right text-sm font-[Roboto] font-semibold text-gray-800">
-                          Nilai Akhir : {calculateTotalNilai()} ({getGradeFromScore(parseFloat(calculateTotalNilai()))})
+                        <td
+                          colSpan={4}
+                          className="border border-gray-300 px-3 py-2 text-right text-sm font-[Roboto] font-semibold text-gray-800"
+                        >
+                          Nilai Akhir :{" "}
+                          {isNaN(totalNilaiNow)
+                            ? "--"
+                            : totalNilaiNow.toFixed(2)}{" "}
+                          ({gradeNow})
                         </td>
                         <td className="border border-gray-300 px-3 py-2 text-center">
                           <button className="text-xs text-blue-600 hover:text-blue-700 font-[Roboto]">
@@ -759,7 +1247,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                 </div>
               </div>
 
-              {/* Footer */}
               <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
                 <button
                   onClick={() => setShowFormNilai(false)}
@@ -772,6 +1259,209 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
                 >
                   Simpan
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Keputusan Sidang */}
+      <AnimatePresence>
+        {showKeputusanSidang && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowKeputusanSidang(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl text-gray-800 font-[Poppins]">
+                  Kelulusan Sidang dan Kehadiran Dosen
+                </h2>
+                <button
+                  onClick={() => setShowKeputusanSidang(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+                <p className="text-sm text-gray-600 font-[Roboto]">
+                  Tentukan hasil akhir dari sidang mahasiswa yang
+                  bersangkutan.
+                </p>
+
+                {/* Hasil Options */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setHasilSidang("Diterima")}
+                      className={`p-4 rounded-lg border-2 transition-all text-left ${
+                        hasilSidang === "Diterima"
+                          ? "border-green-500 bg-green-50"
+                          : "border-gray-200 hover:border-green-300"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            hasilSidang === "Diterima"
+                              ? "border-green-500"
+                              : "border-gray-300"
+                          }`}
+                        >
+                          {hasilSidang === "Diterima" && (
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                          )}
+                        </div>
+                        <span className="font-[Roboto] text-sm text-gray-700">
+                          Diterima
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-500 font-[Roboto]">
+                        Mahasiswa lulus tanpa revisi tambahan.
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setHasilSidang("Diterima dengan revisi minor")
+                      }
+                      className={`p-4 rounded-lg border-2 transition-all text-left ${
+                        hasilSidang === "Diterima dengan revisi minor"
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200 hover:border-blue-300"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            hasilSidang === "Diterima dengan revisi minor"
+                              ? "border-blue-500"
+                              : "border-gray-300"
+                          }`}
+                        >
+                          {hasilSidang === "Diterima dengan revisi minor" && (
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                          )}
+                        </div>
+                        <span className="font-[Roboto] text-sm text-gray-700">
+                          Diterima dengan revisi minor
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-500 font-[Roboto]">
+                        Revisi ringan tanpa mengubah struktur utama.
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setHasilSidang("Diterima dengan revisi mayor")
+                      }
+                      className={`p-4 rounded-lg border-2 transition-all text-left ${
+                        hasilSidang === "Diterima dengan revisi mayor"
+                          ? "border-yellow-500 bg-yellow-50"
+                          : "border-gray-200 hover:border-yellow-300"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            hasilSidang === "Diterima dengan revisi mayor"
+                              ? "border-yellow-500"
+                              : "border-gray-300"
+                          }`}
+                        >
+                          {hasilSidang === "Diterima dengan revisi mayor" && (
+                            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                          )}
+                        </div>
+                        <span className="font-[Roboto] text-sm text-gray-700">
+                          Diterima dengan revisi mayor
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-500 font-[Roboto]">
+                        Revisi substansial yang wajib diselesaikan.
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => setHasilSidang("Ditolak")}
+                      className={`p-4 rounded-lg border-2 transition-all text-left ${
+                        hasilSidang === "Ditolak"
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-200 hover:border-red-300"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            hasilSidang === "Ditolak"
+                              ? "border-red-500"
+                              : "border-gray-300"
+                          }`}
+                        >
+                          {hasilSidang === "Ditolak" && (
+                            <div className="w-2 h-2 rounded-full bg-red-500" />
+                          )}
+                        </div>
+                        <span className="font-[Roboto] text-sm text-gray-700">
+                          Ditolak
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-500 font-[Roboto]">
+                        Mahasiswa tidak lulus pada sidang ini.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Kehadiran */}
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-700 font-[Roboto]">
+                    Kehadiran Mahasiswa
+                  </p>
+                  <select
+                    value={kehadiran}
+                    onChange={(e) =>
+                      setKehadiran(
+                        e.target.value as
+                          | "Hadir"
+                          | "Tidak Hadir"
+                          | "Izin / Sakit"
+                      )
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-[Roboto] text-sm"
+                  >
+                    <option value="Hadir">Hadir</option>
+                    <option value="Tidak Hadir">Tidak Hadir</option>
+                    <option value="Izin / Sakit">Izin / Sakit</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={() => setShowKeputusanSidang(false)}
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-[Roboto] text-sm"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleSimpanKeputusan}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm"
+                >
+                  Simpan Keputusan
                 </button>
               </div>
             </motion.div>
