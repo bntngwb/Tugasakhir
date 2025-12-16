@@ -19,6 +19,14 @@ import { GuideModal } from "./GuideModal";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner@2.0.3";
 
+interface BimbinganEntry {
+  id: number;
+  ke: number;
+  beritaAcara: string;
+  waktu: string; // ISO atau string biasa
+  status: "Menunggu" | "Disetujui";
+}
+
 interface Student {
   id: number;
   nrp: string;
@@ -30,18 +38,21 @@ interface Student {
   lab: string;
   pembimbing1: string;
   pembimbing2: string;
-  tahap: "Proposal" | "Tugas Akhir"; // pipeline jenis
+  tahap: "Proposal" | "Tugas Akhir";
+  // progress field lama diabaikan, progress dihitung dari timeline
   progress: number;
   status:
-    | "Dalam Pengerjaan"
-    | "Menunggu Approval"
-    | "Daftar Sidang"
-    | "Siap Sidang"
-    | "Sidang"
-    | "Pengerjaan Revisi"
+    | "Proposal"
+    | "Sidang Proposal"
+    | "Revisi Proposal"
+    | "Tugas Akhir"
+    | "Sidang Tugas Akhir"
+    | "Revisi Tugas Akhir"
     | "Selesai";
   jumlahBimbingan: number;
-  needsApproval: boolean;
+  needsApproval: boolean; // legacy, sekarang tidak dipakai; approval dari hidden state timeline
+  timelineDates?: (string | null)[];
+  bimbinganLog?: BimbinganEntry[];
 }
 
 interface TopicProposal {
@@ -58,32 +69,184 @@ interface BimbinganAktifProps {
   initialView?: "default" | "ajuanTopik" | "approval";
 }
 
-export function BimbinganAktif({
-  initialView = "default",
-}: BimbinganAktifProps) {
+// 13 langkah timeline proses bimbingan
+const TIMELINE_STEPS: { label: string }[] = [
+  { label: "Mendaftar proposal TA" }, // 0
+  { label: "Proposal TA disetujui" }, // 1 (approval #1)
+  { label: "Mendaftar sidang proposal TA" }, // 2
+  { label: "Daftar sidang proposal TA disetujui" }, // 3 (approval #2)
+  { label: "Sidang proposal TA selesai" }, // 4
+  { label: "Revisi sidang proposal TA disetujui" }, // 5
+  { label: "Mendaftar tugas akhir" }, // 6
+  { label: "Tugas akhir disetujui" }, // 7 (approval #3)
+  { label: "Mendaftar sidang tugas akhir" }, // 8
+  { label: "Daftar Sidang tugas akhir disetujui" }, // 9 (approval #4)
+  { label: "Sidang tugas akhir selesai" }, // 10
+  { label: "Revisi tugas akhir disetujui" }, // 11
+  { label: "Selesai" }, // 12
+];
+
+// pasangan "hidden approval": beforeIndex = step sebelum disetujui, approvalIndex = step disetujui
+const APPROVAL_PAIRS = [
+  { beforeIndex: 0, approvalIndex: 1 }, // sebelum proposal TA disetujui
+  { beforeIndex: 2, approvalIndex: 3 }, // sebelum daftar sidang proposal TA disetujui
+  { beforeIndex: 6, approvalIndex: 7 }, // sebelum tugas akhir disetujui
+  { beforeIndex: 8, approvalIndex: 9 }, // sebelum daftar sidang tugas akhir disetujui
+];
+
+// Helper: cari index step terakhir yang punya tanggal (dianggap sudah selesai)
+const getCurrentStepIndex = (student: Student): number => {
+  if (!student.timelineDates || student.timelineDates.length === 0) return -1;
+  let idx = -1;
+  const len = Math.min(student.timelineDates.length, TIMELINE_STEPS.length);
+  for (let i = 0; i < len; i++) {
+    if (student.timelineDates[i]) idx = i;
+  }
+  return idx;
+};
+
+// Hidden state "perlu approval" dari timeline
+const hasHiddenApprovalState = (student: Student): boolean => {
+  const dates = student.timelineDates || [];
+  return APPROVAL_PAIRS.some(({ beforeIndex, approvalIndex }) => {
+    return !!dates[beforeIndex] && !dates[approvalIndex];
+  });
+};
+
+// Progress bar berdasarkan posisi di timeline
+const getTimelineProgress = (student: Student): number => {
+  const idx = getCurrentStepIndex(student);
+  if (idx < 0) return 0;
+  const progress = ((idx + 1) / TIMELINE_STEPS.length) * 100;
+  return Math.max(0, Math.min(100, Math.round(progress)));
+};
+
+// Status (badge + filter) disesuaikan dengan fase di 13 timeline
+const getStatusFromTimeline = (student: Student): Student["status"] => {
+  const idx = getCurrentStepIndex(student);
+
+  if (idx < 0) {
+    // baru daftar / belum mulai apa-apa → kita anggap fase proposal
+    return "Proposal";
+  }
+
+  // 0–1: pendaftaran & persetujuan proposal TA
+  if (idx >= 0 && idx <= 1) {
+    return "Proposal";
+  }
+
+  // 2–4: mendaftar, approval, dan sidang proposal TA selesai
+  if (idx >= 2 && idx <= 4) {
+    return "Sidang Proposal";
+  }
+
+  // 5: revisi sidang proposal disetujui
+  if (idx === 5) {
+    return "Revisi Proposal";
+  }
+
+  // 6–7: daftar TA & TA disetujui
+  if (idx >= 6 && idx <= 7) {
+    return "Tugas Akhir";
+  }
+
+  // 8–10: daftar, approval, dan sidang tugas akhir selesai
+  if (idx >= 8 && idx <= 10) {
+    return "Sidang Tugas Akhir";
+  }
+
+  // 11: revisi sidang tugas akhir disetujui
+  if (idx === 11) {
+    return "Revisi Tugas Akhir";
+  }
+
+  // 12+: selesai
+  return "Selesai";
+};
+
+// Format tampilan tanggal di bawah bullet
+const formatTimelineDate = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return "Belum selesai";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr; // fallback kalau string bukan date valid
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+// Format datetime untuk log bimbingan
+const formatDateTime = (dateTimeStr: string): string => {
+  const d = new Date(dateTimeStr);
+  if (isNaN(d.getTime())) return dateTimeStr;
+  return d.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+// Approve hidden-state: mengisi tanggal step approval yang lagi nyangkut
+const approveHiddenState = (student: Student): Student => {
+  const len = TIMELINE_STEPS.length;
+  const dates = student.timelineDates
+    ? [...student.timelineDates]
+    : new Array(len).fill(null);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  for (const { beforeIndex, approvalIndex } of APPROVAL_PAIRS) {
+    if (beforeIndex < len && approvalIndex < len) {
+      if (dates[beforeIndex] && !dates[approvalIndex]) {
+        dates[approvalIndex] = todayStr;
+        break;
+      }
+    }
+  }
+
+  return {
+    ...student,
+    timelineDates: dates,
+  };
+};
+
+// Helper bimbingan
+const getPendingBimbinganCount = (student: Student): number => {
+  if (!student.bimbinganLog) return 0;
+  return student.bimbinganLog.filter((b) => b.status === "Menunggu").length;
+};
+
+const getApprovedBimbinganCount = (student: Student): number => {
+  if (!student.bimbinganLog) return student.jumlahBimbingan;
+  return student.bimbinganLog.filter((b) => b.status === "Disetujui").length;
+};
+
+export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps) {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
-  const [selectedJenjang, setSelectedJenjang] = useState("Semua");
+  const [selectedJenjang, setSelectedJenjang] = useState<"Semua" | "S1" | "S2" | "S3">("Semua");
   const [selectedStatus, setSelectedStatus] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  // ⬇️ ini yang dihubungkan ke Beranda (ajuanTopik / approval)
-  const [expandedAjuan, setExpandedAjuan] = useState(
-    initialView === "ajuanTopik"
-  );
+  // Modal Approve Bimbingan
+  const [selectedBimbinganStudent, setSelectedBimbinganStudent] = useState<Student | null>(null);
+  const [showBimbinganModal, setShowBimbinganModal] = useState(false);
+
+  // dari beranda
+  const [expandedAjuan, setExpandedAjuan] = useState(initialView === "ajuanTopik");
   const [selectedTopics, setSelectedTopics] = useState<number[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState<TopicProposal | null>(
-    null
-  );
+  const [selectedTopic, setSelectedTopic] = useState<TopicProposal | null>(null);
   const [showTopicDetailModal, setShowTopicDetailModal] = useState(false);
-  const [filterMode, setFilterMode] = useState<"all" | "approval" | "ready">(
+  const [filterMode] = useState<"all" | "approval" | "ready">(
     initialView === "approval" ? "approval" : "all"
   );
-
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
 
-  // 🔹 Students pakai state, agar bisa ditambah & di-update otomatis
+  // DATA MAHASISWA
   const [students, setStudents] = useState<Student[]>([
     {
       id: 1,
@@ -99,11 +262,90 @@ export function BimbinganAktif({
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Proposal",
-      // contoh: sudah selesai menulis, tinggal minta persetujuan dosen → Menunggu Approval
-      status: "Menunggu Approval",
+      status: "Sidang Proposal",
       progress: 60,
       jumlahBimbingan: 8,
       needsApproval: true,
+      timelineDates: [
+        "2025-01-02", // 0
+        "2025-01-05", // 1
+        "2025-01-10", // 2
+        "2025-01-15", // 3
+        null, // 4
+        null, // 5
+        null, // 6
+        null, // 7
+        null, // 8
+        null, // 9
+        null, // 10
+        null, // 11
+        null, // 12
+      ],
+      bimbinganLog: [
+        {
+          id: 101,
+          ke: 1,
+          beritaAcara: "Penjelasan aturan tugas akhir dan penentuan topik awal.",
+          waktu: "2024-12-10T09:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 102,
+          ke: 2,
+          beritaAcara: "Review rumusan masalah dan tujuan penelitian.",
+          waktu: "2024-12-20T13:30:00",
+          status: "Disetujui",
+        },
+        {
+          id: 103,
+          ke: 3,
+          beritaAcara: "Diskusi kerangka teori dan penyusunan BAB II.",
+          waktu: "2025-01-03T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 104,
+          ke: 4,
+          beritaAcara: "Pemeriksaan metodologi dan rancangan eksperimen.",
+          waktu: "2025-01-15T15:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 105,
+          ke: 5,
+          beritaAcara: "Evaluasi implementasi awal sistem.",
+          waktu: "2025-02-01T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 106,
+          ke: 6,
+          beritaAcara: "Finalisasi BAB IV dan interpretasi hasil.",
+          waktu: "2025-02-15T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 107,
+          ke: 7,
+          beritaAcara: "Persiapan materi presentasi sidang proposal.",
+          waktu: "2025-03-01T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 108,
+          ke: 8,
+          beritaAcara: "Simulasi tanya jawab sidang proposal.",
+          waktu: "2025-03-10T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 109,
+          ke: 9,
+          beritaAcara: "Pengajuan revisi dokumen setelah sidang.",
+          waktu: "2025-03-20T10:00:00",
+          status: "Menunggu",
+        },
+      ],
     },
     {
       id: 2,
@@ -118,10 +360,69 @@ export function BimbinganAktif({
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Proposal",
-      status: "Dalam Pengerjaan",
+      status: "Proposal",
       progress: 35,
       jumlahBimbingan: 5,
       needsApproval: false,
+      timelineDates: [
+        "2025-01-03", // 0
+        null, // 1
+        null, // 2
+        null, // 3
+        null, // 4
+        null, // 5
+        null, // 6
+        null, // 7
+        null, // 8
+        null, // 9
+        null, // 10
+        null, // 11
+        null, // 12
+      ],
+      bimbinganLog: [
+        {
+          id: 201,
+          ke: 1,
+          beritaAcara: "Diskusi kebutuhan fitur utama aplikasi.",
+          waktu: "2024-11-10T09:30:00",
+          status: "Disetujui",
+        },
+        {
+          id: 202,
+          ke: 2,
+          beritaAcara: "Review user flow dan wireframe.",
+          waktu: "2024-11-20T09:30:00",
+          status: "Disetujui",
+        },
+        {
+          id: 203,
+          ke: 3,
+          beritaAcara: "Penyusunan BAB I dan BAB II.",
+          waktu: "2024-12-02T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 204,
+          ke: 4,
+          beritaAcara: "Diskusi rancangan arsitektur sistem.",
+          waktu: "2024-12-15T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 205,
+          ke: 5,
+          beritaAcara: "Pemeriksaan draft proposal lengkap.",
+          waktu: "2024-12-28T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 206,
+          ke: 6,
+          beritaAcara: "Pengajuan revisi kecil sebelum daftar sidang.",
+          waktu: "2025-01-05T09:00:00",
+          status: "Menunggu",
+        },
+      ],
     },
     {
       id: 3,
@@ -136,11 +437,118 @@ export function BimbinganAktif({
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Tugas Akhir",
-      // contoh: sudah daftar sidang, masih butuh approval admin → Daftar Sidang + needsApproval true
-      status: "Daftar Sidang",
+      status: "Sidang Tugas Akhir",
       progress: 75,
       jumlahBimbingan: 12,
       needsApproval: true,
+      timelineDates: [
+        "2024-09-01", // 0
+        "2024-09-10", // 1
+        "2024-09-20", // 2
+        "2024-09-25", // 3
+        "2024-10-01", // 4
+        "2024-10-05", // 5
+        "2024-10-15", // 6
+        "2024-10-25", // 7
+        "2024-11-01", // 8
+        null, // 9
+        null, // 10
+        null, // 11
+        null, // 12
+      ],
+      bimbinganLog: [
+        {
+          id: 301,
+          ke: 1,
+          beritaAcara: "Penentuan dataset dan platform pengumpulan data.",
+          waktu: "2024-07-10T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 302,
+          ke: 2,
+          beritaAcara: "Review literatur terkait model LSTM dan BERT.",
+          waktu: "2024-07-20T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 303,
+          ke: 3,
+          beritaAcara: "Perancangan pipeline preprocessing teks.",
+          waktu: "2024-08-01T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 304,
+          ke: 4,
+          beritaAcara: "Diskusi hasil eksperimen awal.",
+          waktu: "2024-08-15T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 305,
+          ke: 5,
+          beritaAcara: "Analisis perbandingan performa model.",
+          waktu: "2024-09-01T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 306,
+          ke: 6,
+          beritaAcara: "Penyusunan BAB IV dan pembahasan.",
+          waktu: "2024-09-20T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 307,
+          ke: 7,
+          beritaAcara: "Persiapan naskah sidang tugas akhir.",
+          waktu: "2024-10-05T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 308,
+          ke: 8,
+          beritaAcara: "Simulasi sidang dan tanya jawab.",
+          waktu: "2024-10-15T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 309,
+          ke: 9,
+          beritaAcara: "Pengumpulan berkas administrasi sidang.",
+          waktu: "2024-10-25T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 310,
+          ke: 10,
+          beritaAcara: "Diskusi hasil sidang dan tindak lanjut.",
+          waktu: "2024-11-05T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 311,
+          ke: 11,
+          beritaAcara: "Review revisi naskah final.",
+          waktu: "2024-11-20T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 312,
+          ke: 12,
+          beritaAcara: "Konfirmasi kelayakan naskah untuk unggah Repositori.",
+          waktu: "2024-12-01T10:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 313,
+          ke: 13,
+          beritaAcara: "Permohonan tanda tangan lembar pengesahan.",
+          waktu: "2024-12-10T10:00:00",
+          status: "Menunggu",
+        },
+      ],
     },
     {
       id: 4,
@@ -155,10 +563,76 @@ export function BimbinganAktif({
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Proposal",
-      status: "Siap Sidang",
+      status: "Revisi Proposal",
       progress: 90,
       jumlahBimbingan: 6,
       needsApproval: false,
+      timelineDates: [
+        "2024-11-01", // 0
+        "2024-11-05", // 1
+        "2024-11-10", // 2
+        "2024-11-15", // 3
+        "2024-11-20", // 4
+        "2024-11-25", // 5
+        null, // 6
+        null, // 7
+        null, // 8
+        null, // 9
+        null, // 10
+        null, // 11
+        null, // 12
+      ],
+      bimbinganLog: [
+        {
+          id: 401,
+          ke: 1,
+          beritaAcara: "Penentuan jenis penyakit tanaman target.",
+          waktu: "2024-10-01T09:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 402,
+          ke: 2,
+          beritaAcara: "Pengumpulan dataset citra daun.",
+          waktu: "2024-10-10T09:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 403,
+          ke: 3,
+          beritaAcara: "Perancangan arsitektur CNN.",
+          waktu: "2024-10-20T09:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 404,
+          ke: 4,
+          beritaAcara: "Eksperimen awal dan tuning hyperparameter.",
+          waktu: "2024-11-01T09:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 405,
+          ke: 5,
+          beritaAcara: "Analisis akurasi model dan confusion matrix.",
+          waktu: "2024-11-15T09:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 406,
+          ke: 6,
+          beritaAcara: "Penyusunan BAB III dan BAB IV.",
+          waktu: "2024-11-25T09:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 407,
+          ke: 7,
+          beritaAcara: "Revisi minor penulisan dan layout gambar.",
+          waktu: "2024-12-05T09:00:00",
+          status: "Menunggu",
+        },
+      ],
     },
     {
       id: 5,
@@ -173,14 +647,101 @@ export function BimbinganAktif({
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Tugas Akhir",
-      status: "Pengerjaan Revisi",
+      status: "Revisi Tugas Akhir",
       progress: 85,
       jumlahBimbingan: 9,
       needsApproval: false,
+      timelineDates: [
+        "2024-08-01", // 0
+        "2024-08-05", // 1
+        "2024-08-10", // 2
+        "2024-08-15", // 3
+        "2024-08-20", // 4
+        "2024-08-25", // 5
+        "2024-09-01", // 6
+        "2024-09-10", // 7
+        "2024-09-20", // 8
+        "2024-09-25", // 9
+        "2024-10-01", // 10
+        "2024-10-05", // 11
+        null, // 12
+      ],
+      bimbinganLog: [
+        {
+          id: 501,
+          ke: 1,
+          beritaAcara: "Diskusi formulasi masalah optimasi.",
+          waktu: "2024-06-10T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 502,
+          ke: 2,
+          beritaAcara: "Penentuan fungsi fitness dan constraint.",
+          waktu: "2024-06-20T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 503,
+          ke: 3,
+          beritaAcara: "Desain skema genetic algorithm.",
+          waktu: "2024-07-01T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 504,
+          ke: 4,
+          beritaAcara: "Eksperimen awal dan analisis hasil.",
+          waktu: "2024-07-15T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 505,
+          ke: 5,
+          beritaAcara: "Perbandingan dengan algoritma baseline.",
+          waktu: "2024-08-01T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 506,
+          ke: 6,
+          beritaAcara: "Review BAB III dan BAB IV.",
+          waktu: "2024-08-20T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 507,
+          ke: 7,
+          beritaAcara: "Revisi hasil eksperimen tambahan.",
+          waktu: "2024-09-05T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 508,
+          ke: 8,
+          beritaAcara: "Finalisasi naskah sebelum sidang.",
+          waktu: "2024-09-20T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 509,
+          ke: 9,
+          beritaAcara: "Perbaikan minor pasca sidang.",
+          waktu: "2024-10-10T14:00:00",
+          status: "Disetujui",
+        },
+        {
+          id: 510,
+          ke: 10,
+          beritaAcara: "Pengumpulan berkas kelulusan.",
+          waktu: "2024-10-25T14:00:00",
+          status: "Menunggu",
+        },
+      ],
     },
   ]);
 
-  // Mock data ajuan topik
+  // DATA AJUAN TOPIK
   const [topicProposals, setTopicProposals] = useState<TopicProposal[]>([
     {
       id: 1,
@@ -215,83 +776,43 @@ export function BimbinganAktif({
     },
   ]);
 
-  // 🔹 Helper: buat Student baru dari TopicProposal dengan status (Proposal) (Dalam Pengerjaan)
+  // buat student baru dari ajuan topik
   const createStudentFromTopic = (topic: TopicProposal, id: number): Student => {
+    const len = TIMELINE_STEPS.length;
     return {
       id,
       nrp: topic.nrp,
       nama: topic.nama,
       angkatan: topic.angkatan,
-      // Karena di TopicProposal tidak ada jenjang, kita asumsi default S1
       jenjang: "S1",
       judulTA: topic.judul,
       abstrak: topic.abstrak,
       lab: "Belum ditentukan",
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
-      // start di pipeline proposal: Dalam Pengerjaan (belum perlu approval)
       tahap: "Proposal",
-      status: "Dalam Pengerjaan",
+      status: "Proposal",
       progress: 0,
       jumlahBimbingan: 0,
       needsApproval: false,
+      // default: baru daftar proposal TA (step 0)
+      timelineDates: [
+        new Date().toISOString().slice(0, 10),
+        ...new Array(len - 1).fill(null),
+      ],
+      bimbinganLog: [],
     };
   };
 
-  // 🔹 Timeline steps (sama untuk Proposal & TA, hanya konteks yang beda)
-const TIMELINE_STEPS: Student["status"][] = [
-  "Dalam Pengerjaan",
-  "Menunggu Approval",
-  "Siap Sidang",
-  "Daftar Sidang",
-  "Sidang",
-  "Pengerjaan Revisi",
-  "Selesai",
-];
-
-
-  // 🔹 Helper: logika tahap & status berikutnya ketika dosen Approve bimbingan aktif
-  // proses perlu approval hanya di "Menunggu Approval" dan "Daftar Sidang"
-const getNextStageAfterApproval = (student: Student): Student => {
-  let { tahap, status, progress } = student;
-
-  if (status === "Menunggu Approval") {
-    // setelah dosen setuju → siap sidang (belum daftar)
-    return {
-      ...student,
-      status: "Siap Sidang",
-      needsApproval: false,
-      progress: progress < 75 ? 75 : progress,
-    };
-  }
-
-  if (status === "Daftar Sidang") {
-    // setelah admin/jurusan setuju → status menjadi Sidang (terjadwal)
-    return {
-      ...student,
-      status: "Sidang",
-      needsApproval: false,
-      progress: progress < 90 ? 90 : progress,
-    };
-  }
-
-  // fallback: kalau di-approve di status lain, hanya matikan flag approval
-  return {
-    ...student,
-    tahap,
-    status,
-    progress,
-    needsApproval: false,
-  };
-};
-
-
-  // Filter students berdasarkan filterMode
+  // FILTER MAHASISWA
   let filteredStudents = students.filter((student) => {
+    const derivedStatus = getStatusFromTimeline(student);
+
     const matchesJenjang =
       selectedJenjang === "Semua" || student.jenjang === selectedJenjang;
     const matchesStatus =
-      selectedStatus === "Semua" || student.status === selectedStatus;
+      selectedStatus === "Semua" ||
+      derivedStatus === (selectedStatus as Student["status"]);
     const matchesSearch =
       student.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.nrp.includes(searchQuery) ||
@@ -299,15 +820,11 @@ const getNextStageAfterApproval = (student: Student): Student => {
 
     let matchesFilter = true;
     if (filterMode === "approval") {
-      matchesFilter = student.needsApproval;
-} else if (filterMode === "ready") {
-  // Siap Sidang, Daftar Sidang, dan Sidang dianggap fase sidang
-  matchesFilter =
-    student.status === "Siap Sidang" ||
-    student.status === "Daftar Sidang" ||
-    student.status === "Sidang";
-}
-
+      matchesFilter = hasHiddenApprovalState(student);
+    } else if (filterMode === "ready") {
+      // contoh ready = fase sidang tugas akhir
+      matchesFilter = derivedStatus === "Sidang Tugas Akhir";
+    }
 
     return matchesJenjang && matchesStatus && matchesSearch && matchesFilter;
   });
@@ -323,20 +840,20 @@ const getNextStageAfterApproval = (student: Student): Student => {
 
   const getStatusColor = (status: Student["status"]) => {
     switch (status) {
-      case "Dalam Pengerjaan":
+      case "Proposal":
         return "bg-blue-100 text-blue-700 border-blue-200";
-      case "Menunggu Approval":
-        return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      case "Daftar Sidang":
+      case "Sidang Proposal":
         return "bg-purple-100 text-purple-700 border-purple-200";
-      case "Siap Sidang":
-        return "bg-green-100 text-green-700 border-green-200";
-      case "Sidang":
-        return "bg-indigo-100 text-indigo-700 border-indigo-200";
-      case "Pengerjaan Revisi":
+      case "Revisi Proposal":
         return "bg-orange-100 text-orange-700 border-orange-200";
-      case "Selesai":
+      case "Tugas Akhir":
         return "bg-emerald-100 text-emerald-700 border-emerald-200";
+      case "Sidang Tugas Akhir":
+        return "bg-indigo-100 text-indigo-700 border-indigo-200";
+      case "Revisi Tugas Akhir":
+        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      case "Selesai":
+        return "bg-green-100 text-green-700 border-green-200";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
     }
@@ -344,14 +861,15 @@ const getNextStageAfterApproval = (student: Student): Student => {
 
   const getStatusIcon = (status: Student["status"]) => {
     switch (status) {
-      case "Dalam Pengerjaan":
-      case "Pengerjaan Revisi":
+      case "Proposal":
+      case "Tugas Akhir":
         return <Clock className="w-4 h-4" />;
-      case "Menunggu Approval":
-      case "Daftar Sidang":
+      case "Sidang Proposal":
+      case "Sidang Tugas Akhir":
+        return <Calendar className="w-4 h-4" />;
+      case "Revisi Proposal":
+      case "Revisi Tugas Akhir":
         return <AlertCircle className="w-4 h-4" />;
-      case "Siap Sidang":
-      case "Sidang":
       case "Selesai":
         return <CheckCircle2 className="w-4 h-4" />;
       default:
@@ -364,7 +882,13 @@ const getNextStageAfterApproval = (student: Student): Student => {
     setShowDetailModal(true);
   };
 
-  // 🔹 Batch approval usulan topik → tambah ke list mahasiswa + update total mahasiswa
+  // Open modal Approve Bimbingan
+  const handleOpenBimbinganModal = (student: Student) => {
+    setSelectedBimbinganStudent(student);
+    setShowBimbinganModal(true);
+  };
+
+  // BATCH APPROVAL USULAN TOPIK
   const handleApproveTopics = () => {
     if (selectedTopics.length === 0) {
       toast.error("Pilih minimal satu topik untuk disetujui");
@@ -385,21 +909,19 @@ const getNextStageAfterApproval = (student: Student): Student => {
       createStudentFromTopic(topic, baseId + index)
     );
 
-    // Tambahkan mahasiswa baru ke list bimbingan aktif
-    setStudents((prev) => [...prev, ...newStudentsFromTopics]);
-
-    // Hapus dari list ajuan topik
+    // baru disetujui → taruh di paling atas
+    setStudents((prev) => [...newStudentsFromTopics, ...prev]);
     setTopicProposals((prev) =>
       prev.filter((t) => !selectedTopics.includes(t.id))
     );
 
     toast.success(
-      `${selectedTopics.length} topik berhasil disetujui dan ditambahkan ke daftar bimbingan (Proposal - Dalam Pengerjaan)`
+      `${selectedTopics.length} topik berhasil disetujui dan ditambahkan ke daftar bimbingan (Proposal)`
     );
     setSelectedTopics([]);
   };
 
-  // 🔹 Single approval usulan topik → tambah satu mahasiswa baru
+  // SINGLE APPROVAL USULAN TOPIK
   const handleApproveSingle = (id: number) => {
     const topic = topicProposals.find((t) => t.id === id);
     if (!topic) {
@@ -410,11 +932,12 @@ const getNextStageAfterApproval = (student: Student): Student => {
     const newId = Date.now();
     const newStudent = createStudentFromTopic(topic, newId);
 
-    setStudents((prev) => [...prev, newStudent]);
+    // baru disetujui → taruh di paling atas
+    setStudents((prev) => [newStudent, ...prev]);
     setTopicProposals((prev) => prev.filter((t) => t.id !== id));
 
     toast.success(
-      "Topik berhasil disetujui dan ditambahkan ke daftar bimbingan (Proposal - Dalam Pengerjaan)"
+      "Topik berhasil disetujui dan ditambahkan ke daftar bimbingan (Proposal)"
     );
   };
 
@@ -455,7 +978,7 @@ const getNextStageAfterApproval = (student: Student): Student => {
     }
   };
 
-  // 🔹 Batch approval di section "Perlu Approval" (Bimbingan Aktif)
+  // BATCH APPROVAL HIDDEN STATE (PERLU APPROVAL)
   const handleBatchApproval = () => {
     if (selectedStudents.length === 0) {
       toast.error("Pilih minimal satu mahasiswa untuk disetujui");
@@ -464,11 +987,15 @@ const getNextStageAfterApproval = (student: Student): Student => {
 
     const approvedCount = selectedStudents.length;
 
-    setStudents((prev) =>
-      prev.map((s) =>
-        selectedStudents.includes(s.id) ? getNextStageAfterApproval(s) : s
-      )
-    );
+    setStudents((prev) => {
+      const selected = prev.filter((s) => selectedStudents.includes(s.id));
+      const others = prev.filter((s) => !selectedStudents.includes(s.id));
+
+      const approvedUpdated = selected.map((s) => approveHiddenState(s));
+
+      // yang baru di-approve naik ke paling atas
+      return [...approvedUpdated, ...others];
+    });
 
     setSelectedStudents([]);
     toast.success(
@@ -476,44 +1003,112 @@ const getNextStageAfterApproval = (student: Student): Student => {
     );
   };
 
-  // 🔹 Single approval dari dalam modal detail mahasiswa
+  // SINGLE APPROVAL DARI MODAL DETAIL (timeline)
   const handleApproveStudent = (studentId: number) => {
     let updatedStudent: Student | null = null;
 
     setStudents((prev) => {
-      const next = prev.map((s) => {
+      const updatedList: Student[] = [];
+      prev.forEach((s) => {
         if (s.id === studentId) {
-          const updated = getNextStageAfterApproval(s);
+          const updated = approveHiddenState(s);
           updatedStudent = updated;
-          return updated;
+          // push duluan supaya ke paling atas
+          updatedList.unshift(updated);
+        } else {
+          updatedList.push(s);
         }
-        return s;
       });
-      return next;
+      return updatedList;
     });
 
-    // Update juga state selectedStudent supaya detail & timeline langsung berubah
     if (updatedStudent) {
       setSelectedStudent(updatedStudent);
     }
 
-    // Hapus dari selection batch jika ada
     setSelectedStudents((prev) => prev.filter((id) => id !== studentId));
 
     toast.success(
-      "Mahasiswa berhasil disetujui dan dipindahkan ke tahap selanjutnya"
+      "Mahasiswa berhasil disetujui dan timeline dilanjutkan ke step berikutnya"
     );
-    // Modal tidak ditutup otomatis, supaya dosen bisa lihat perubahan detail & timeline
   };
 
-  const needsApprovalCount = students.filter((s) => s.needsApproval).length;
-const readyForSidangCount = students.filter(
-  (s) =>
-    s.status === "Siap Sidang" ||
-    s.status === "Daftar Sidang" ||
-    s.status === "Sidang"
-).length;
+  // APPROVAL BIMBINGAN: SINGLE
+  const handleApproveSingleBimbingan = (studentId: number, entryId: number) => {
+    setStudents((prev) =>
+      prev.map((s) => {
+        if (s.id !== studentId || !s.bimbinganLog) return s;
+        const updatedLog = s.bimbinganLog.map((b) =>
+          b.id === entryId ? { ...b, status: "Disetujui" } : b
+        );
+        const approvedCount = updatedLog.filter(
+          (b) => b.status === "Disetujui"
+        ).length;
+        return { ...s, bimbinganLog: updatedLog, jumlahBimbingan: approvedCount };
+      })
+    );
 
+    if (
+      selectedBimbinganStudent &&
+      selectedBimbinganStudent.id === studentId &&
+      selectedBimbinganStudent.bimbinganLog
+    ) {
+      const updatedLog = selectedBimbinganStudent.bimbinganLog.map((b) =>
+        b.id === entryId ? { ...b, status: "Disetujui" } : b
+      );
+      const approvedCount = updatedLog.filter(
+        (b) => b.status === "Disetujui"
+      ).length;
+      setSelectedBimbinganStudent({
+        ...selectedBimbinganStudent,
+        bimbinganLog: updatedLog,
+        jumlahBimbingan: approvedCount,
+      });
+    }
+
+    toast.success("Ajuan bimbingan berhasil disetujui");
+  };
+
+  // APPROVAL BIMBINGAN: ALL
+  const handleApproveAllBimbingan = (studentId: number) => {
+    setStudents((prev) =>
+      prev.map((s) => {
+        if (s.id !== studentId || !s.bimbinganLog) return s;
+        const updatedLog = s.bimbinganLog.map((b) =>
+          b.status === "Menunggu" ? { ...b, status: "Disetujui" } : b
+        );
+        const approvedCount = updatedLog.filter(
+          (b) => b.status === "Disetujui"
+        ).length;
+        return { ...s, bimbinganLog: updatedLog, jumlahBimbingan: approvedCount };
+      })
+    );
+
+    if (
+      selectedBimbinganStudent &&
+      selectedBimbinganStudent.id === studentId &&
+      selectedBimbinganStudent.bimbinganLog
+    ) {
+      const updatedLog = selectedBimbinganStudent.bimbinganLog.map((b) =>
+        b.status === "Menunggu" ? { ...b, status: "Disetujui" } : b
+      );
+      const approvedCount = updatedLog.filter(
+        (b) => b.status === "Disetujui"
+      ).length;
+      setSelectedBimbinganStudent({
+        ...selectedBimbinganStudent,
+        bimbinganLog: updatedLog,
+        jumlahBimbingan: approvedCount,
+      });
+    }
+
+    toast.success("Semua ajuan bimbingan berhasil disetujui");
+  };
+
+  // JUMLAH PER JENJANG
+  const s1Count = students.filter((s) => s.jenjang === "S1").length;
+  const s2Count = students.filter((s) => s.jenjang === "S2").length;
+  const s3Count = students.filter((s) => s.jenjang === "S3").length;
 
   return (
     <main className="flex-1 p-6 bg-[#f5f5f5]">
@@ -689,86 +1284,88 @@ const readyForSidangCount = students.filter(
           </div>
         </div>
 
-        {/* Statistics - dengan onClick untuk filter */}
+        {/* Statistics cards: Mahasiswa S1 / S2 / S3 */}
         <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 cursor-default">
+          {/* S1 */}
+          <div
+            onClick={() =>
+              setSelectedJenjang((prev) => (prev === "S1" ? "Semua" : "S1"))
+            }
+            className={`rounded-lg border p-4 cursor-pointer transition-all ${
+              selectedJenjang === "S1"
+                ? "bg-blue-50 border-blue-300 shadow-md"
+                : "bg-white border-gray-200 hover:shadow-md"
+            }`}
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
                 <Users className="w-5 h-5 text-blue-600" />
               </div>
               <div>
                 <p className="text-xs text-gray-600 font-[Roboto]">
-                  Total Mahasiswa
+                  Mahasiswa S1
                 </p>
                 <p className="text-2xl text-gray-800 font-[Poppins]">
-                  {students.length}
+                  {s1Count}
                 </p>
               </div>
             </div>
           </div>
 
+          {/* S2 */}
           <div
-            onClick={() => {
-              if (filterMode === "approval") {
-                setFilterMode("all");
-                setSelectedStudents([]);
-              } else {
-                setFilterMode("approval");
-                setSelectedStudents([]);
-              }
-            }}
+            onClick={() =>
+              setSelectedJenjang((prev) => (prev === "S2" ? "Semua" : "S2"))
+            }
             className={`rounded-lg border p-4 cursor-pointer transition-all ${
-              filterMode === "approval"
-                ? "bg-orange-50 border-orange-300 shadow-md"
-                : "bg-white border-gray-200 hover:shadow-md"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-100 rounded flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-600 font-[Roboto]">
-                  Perlu Approval
-                </p>
-                <p className="text-2xl text-gray-800 font-[Poppins]">
-                  {needsApprovalCount}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div
-            onClick={() => {
-              if (filterMode === "ready") {
-                setFilterMode("all");
-              } else {
-                setFilterMode("ready");
-              }
-            }}
-            className={`rounded-lg border p-4 cursor-pointer transition-all ${
-              filterMode === "ready"
+              selectedJenjang === "S2"
                 ? "bg-green-50 border-green-300 shadow-md"
                 : "bg-white border-gray-200 hover:shadow-md"
             }`}
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <Users className="w-5 h-5 text-green-600" />
               </div>
               <div>
                 <p className="text-xs text-gray-600 font-[Roboto]">
-                  Siap / Sedang Sidang
+                  Mahasiswa S2
                 </p>
                 <p className="text-2xl text-gray-800 font-[Poppins]">
-                  {readyForSidangCount}
+                  {s2Count}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* S3 */}
+          <div
+            onClick={() =>
+              setSelectedJenjang((prev) => (prev === "S3" ? "Semua" : "S3"))
+            }
+            className={`rounded-lg border p-4 cursor-pointer transition-all ${
+              selectedJenjang === "S3"
+                ? "bg-purple-50 border-purple-300 shadow-md"
+                : "bg-white border-gray-200 hover:shadow-md"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded flex items-center justify-center">
+                <Users className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-600 font-[Roboto]">
+                  Mahasiswa S3
+                </p>
+                <p className="text-2xl text-gray-800 font-[Poppins]">
+                  {s3Count}
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Batch Approval Button - tampil saat filter approval aktif */}
+        {/* Batch Approval Hidden State */}
         {filterMode === "approval" && filteredStudents.length > 0 && (
           <div className="mb-6 flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg p-4">
             <div className="flex items-center gap-3">
@@ -796,7 +1393,7 @@ const readyForSidangCount = students.filter(
 
         {/* Filters */}
         <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -809,28 +1406,17 @@ const readyForSidangCount = students.filter(
             </div>
 
             <select
-              value={selectedJenjang}
-              onChange={(e) => setSelectedJenjang(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-[Roboto] text-sm"
-            >
-              <option value="Semua">Semua Jenjang</option>
-              <option value="S1">S1</option>
-              <option value="S2">S2</option>
-              <option value="S3">S3</option>
-            </select>
-
-            <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-[Roboto] text-sm"
             >
               <option value="Semua">Semua Status</option>
-              <option value="Dalam Pengerjaan">Dalam Pengerjaan</option>
-              <option value="Menunggu Approval">Menunggu Approval</option>
-              <option value="Daftar Sidang">Daftar Sidang</option>
-              <option value="Siap Sidang">Siap Sidang</option>
-              <option value="Sidang">Sidang</option>
-              <option value="Pengerjaan Revisi">Pengerjaan Revisi</option>
+              <option value="Proposal">Proposal</option>
+              <option value="Sidang Proposal">Sidang Proposal</option>
+              <option value="Revisi Proposal">Revisi Proposal</option>
+              <option value="Tugas Akhir">Tugas Akhir</option>
+              <option value="Sidang Tugas Akhir">Sidang Tugas Akhir</option>
+              <option value="Revisi Tugas Akhir">Revisi Tugas Akhir</option>
               <option value="Selesai">Selesai</option>
             </select>
           </div>
@@ -838,99 +1424,123 @@ const readyForSidangCount = students.filter(
 
         {/* Students List */}
         <div className="space-y-4">
-          {filteredStudents.map((student) => (
-            <div
-              key={student.id}
-              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start gap-4">
-                {/* Checkbox untuk batch approval */}
-                {filterMode === "approval" && (
-                  <input
-                    type="checkbox"
-                    checked={selectedStudents.includes(student.id)}
-                    onChange={() => handleSelectStudent(student.id)}
-                    className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                )}
+          {filteredStudents.map((student) => {
+            const derivedStatus = getStatusFromTimeline(student);
+            const progress = getTimelineProgress(student);
+            const showHiddenApproval = hasHiddenApprovalState(student);
+            const pendingBimbingan = getPendingBimbinganCount(student);
+            const approvedBimbingan = getApprovedBimbinganCount(student);
 
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-gray-800 font-[Poppins]">
-                          {student.nama}
-                        </h3>
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-[Roboto]">
-                          {student.jenjang}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-xs font-[Roboto] border ${getStatusColor(
-                            student.status
-                          )} flex items-center gap-1`}
-                        >
-                          {getStatusIcon(student.status)}
-                          {student.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 font-[Roboto] mb-1">
-                        NRP: {student.nrp}
-                      </p>
-                      <p className="text-sm text-gray-800 font-[Roboto] mb-3">
-                        {student.judulTA}
-                      </p>
+            return (
+              <div
+                key={student.id}
+                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start gap-4">
+                  {filterMode === "approval" && (
+                    <input
+                      type="checkbox"
+                      checked={selectedStudents.includes(student.id)}
+                      onChange={() => handleSelectStudent(student.id)}
+                      className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  )}
 
-                      <div className="flex items-center gap-6">
-                        {/* Card Tahap (Proposal / Tugas Akhir) */}
-                        <div
-                          className={`px-3 py-2 rounded-lg border ${getTahapColor(
-                            student.tahap
-                          )} flex items-center gap-2`}
-                        >
-                          <FileText className="w-4 h-4" />
-                          <span className="text-sm font-[Roboto]">
-                            {student.tahap}
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-gray-800 font-[Poppins]">
+                            {student.nama}
+                          </h3>
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-[Roboto]">
+                            {student.jenjang}
                           </span>
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-[Roboto] border ${getStatusColor(
+                              derivedStatus
+                            )} flex items-center gap-1`}
+                          >
+                            {getStatusIcon(derivedStatus)}
+                            {derivedStatus}
+                          </span>
+                          {showHiddenApproval && (
+                            <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-[Roboto] font-semibold">
+                              Perlu approval
+                            </span>
+                          )}
+                          {pendingBimbingan > 0 && (
+                            <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-[Roboto] font-semibold">
+                              {pendingBimbingan} ajuan bimbingan
+                            </span>
+                          )}
                         </div>
+                        <p className="text-sm text-gray-600 font-[Roboto] mb-1">
+                          NRP: {student.nrp}
+                        </p>
+                        <p className="text-sm text-gray-800 font-[Roboto] mb-3">
+                          {student.judulTA}
+                        </p>
 
-                        {/* Jumlah Bimbingan */}
-                        <div className="flex items-center gap-2 text-sm text-gray-600 font-[Roboto]">
-                          <MessageSquare className="w-4 h-4" />
-                          <span>Bimbingan: {student.jumlahBimbingan}x</span>
+                        <div className="flex items-center gap-6">
+                          <div
+                            className={`px-3 py-2 rounded-lg border ${getTahapColor(
+                              student.tahap
+                            )} flex items-center gap-2`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span className="text-sm font-[Roboto]">
+                              {student.tahap}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-sm text-gray-600 font-[Roboto]">
+                            <button
+                              onClick={() => handleOpenBimbinganModal(student)}
+                              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:underline"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                              <span>
+                                Bimbingan:{" "}
+                                <span className="font-semibold">
+                                  {approvedBimbingan}x
+                                </span>
+                              </span>
+                            </button>
+                          </div>
                         </div>
                       </div>
+
+                      <button
+                        onClick={() => handleViewDetail(student)}
+                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm flex items-center gap-2"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Lihat
+                      </button>
                     </div>
 
-                    <button
-                      onClick={() => handleViewDetail(student)}
-                      className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-[Roboto] text-sm flex items-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Lihat
-                    </button>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-gray-600 font-[Roboto]">
-                        Progress
-                      </span>
-                      <span className="text-xs text-gray-800 font-[Roboto] font-semibold">
-                        {student.progress}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all"
-                        style={{ width: `${student.progress}%` }}
-                      />
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-gray-600 font-[Roboto]">
+                          Progress
+                        </span>
+                        <span className="text-xs text-gray-800 font-[Roboto] font-semibold">
+                          {progress}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {filteredStudents.length === 0 && (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
@@ -993,24 +1603,38 @@ const readyForSidangCount = students.filter(
               </div>
 
               <div className="p-6">
-                <div className="mb-6 flex items-center gap-3">
-                  <span
-                    className={`px-3 py-1.5 rounded-lg text-sm font-[Roboto] font-semibold ${getTahapColor(
-                      selectedStudent.tahap
-                    )}`}
-                  >
-                    {selectedStudent.tahap}
-                  </span>
-                  <span
-                    className={`px-3 py-1.5 rounded-lg text-sm font-[Roboto] font-semibold border ${getStatusColor(
-                      selectedStudent.status
-                    )} flex items-center gap-1`}
-                  >
-                    {getStatusIcon(selectedStudent.status)}
-                    {selectedStudent.status}
-                  </span>
-                </div>
+                {(() => {
+                  const derivedStatus = getStatusFromTimeline(selectedStudent);
+                  const showHiddenApproval = hasHiddenApprovalState(
+                    selectedStudent
+                  );
+                  return (
+                    <div className="mb-6 flex items-center gap-3">
+                      <span
+                        className={`px-3 py-1.5 rounded-lg text-sm font-[Roboto] font-semibold ${getTahapColor(
+                          selectedStudent.tahap
+                        )}`}
+                      >
+                        {selectedStudent.tahap}
+                      </span>
+                      <span
+                        className={`px-3 py-1.5 rounded-lg text-sm font-[Roboto] font-semibold border ${getStatusColor(
+                          derivedStatus
+                        )} flex items-center gap-1`}
+                      >
+                        {getStatusIcon(derivedStatus)}
+                        {derivedStatus}
+                      </span>
+                      {showHiddenApproval && (
+                        <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-[Roboto] font-semibold">
+                          Perlu approval
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
+                {/* Info TA */}
                 <div className="mb-6">
                   <h3 className="text-gray-800 font-[Poppins] mb-3 flex items-center gap-2">
                     <FileText className="w-5 h-5" />
@@ -1068,34 +1692,34 @@ const readyForSidangCount = students.filter(
                   </div>
                 </div>
 
-                {/* TIMELINE BARU - mengikuti status */}
+                {/* Timeline vertikal 13 langkah + timestamp */}
                 <div className="mb-6">
                   <h3 className="text-gray-800 font-[Poppins] mb-3 flex items-center gap-2">
                     <Calendar className="w-5 h-5" />
                     Timeline Proses
                   </h3>
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto">
-                    <div className="flex items-center min-w-max">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div className="space-y-4">
                       {TIMELINE_STEPS.map((step, idx) => {
-                        const currentIndex = TIMELINE_STEPS.indexOf(
-                          selectedStudent.status
+                        const currentIndex = getCurrentStepIndex(
+                          selectedStudent
                         );
                         const isActive = currentIndex >= idx;
+                        const isNextActive = currentIndex >= idx + 1;
+                        const isLast = idx === TIMELINE_STEPS.length - 1;
+
+                        const stepDate =
+                          selectedStudent.timelineDates &&
+                          selectedStudent.timelineDates[idx];
 
                         return (
-                          <div key={step} className="flex items-center">
-                            {idx > 0 && (
-                              <div
-                                className={`w-16 h-0.5 mx-2 ${
-                                  idx <= currentIndex
-                                    ? "bg-blue-600"
-                                    : "bg-gray-300"
-                                }`}
-                              />
-                            )}
+                          <div
+                            key={step.label}
+                            className="flex items-start gap-3"
+                          >
                             <div className="flex flex-col items-center">
                               <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm ${
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
                                   isActive
                                     ? "bg-blue-600 text-white"
                                     : "bg-gray-300 text-gray-600"
@@ -1103,34 +1727,54 @@ const readyForSidangCount = students.filter(
                               >
                                 {idx + 1}
                               </div>
+                              {!isLast && (
+                                <div
+                                  className={`w-px flex-1 mt-1 ${
+                                    isNextActive
+                                      ? "bg-blue-600"
+                                      : "bg-gray-300"
+                                  }`}
+                                />
+                              )}
+                            </div>
+                            <div className="pt-1">
                               <p
-                                className={`text-xs mt-2 w-24 text-center font-[Roboto] ${
+                                className={`text-xs font-[Roboto] ${
                                   isActive
                                     ? "text-blue-700 font-semibold"
-                                    : "text-gray-500"
+                                    : "text-gray-600"
                                 }`}
                               >
-                                {step}
+                                {step.label}
+                              </p>
+                              <p className="text-[10px] text-gray-500 font-[Roboto] mt-1">
+                                {formatTimelineDate(stepDate ?? null)}
                               </p>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                    <p className="text-xs text-gray-600 font-[Roboto] mt-4">
-                      Tahap:{" "}
-                      <span className="font-semibold text-blue-700">
-                        {selectedStudent.tahap}
-                      </span>{" "}
-                      • Status:{" "}
-                      <span className="font-semibold text-blue-700">
-                        {selectedStudent.status}
-                      </span>
-                    </p>
+                    {(() => {
+                      const derivedStatus =
+                        getStatusFromTimeline(selectedStudent);
+                      return (
+                        <p className="text-xs text-gray-600 font-[Roboto] mt-4">
+                          Tahap:{" "}
+                          <span className="font-semibold text-blue-700">
+                            {selectedStudent.tahap}
+                          </span>{" "}
+                          • Status:{" "}
+                          <span className="font-semibold text-blue-700">
+                            {derivedStatus}
+                          </span>
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
 
-                {/* Dummy info sidang (bisa kamu sambungkan ke data riil jadwal sidang) */}
+                {/* Dummy info sidang */}
                 <div className="mb-6">
                   <h3 className="text-gray-800 font-[Poppins] mb-3 flex items-center gap-2">
                     <Calendar className="w-5 h-5" />
@@ -1185,18 +1829,17 @@ const readyForSidangCount = students.filter(
                   </p>
                 </div>
 
-                {/* Section Approval - tampil jika needsApproval */}
-                {selectedStudent.needsApproval && (
+                {hasHiddenApprovalState(selectedStudent) && (
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                     <h4 className="text-orange-800 font-[Poppins] mb-3 flex items-center gap-2">
                       <CheckCircle2 className="w-5 h-5" />
                       Persetujuan
                     </h4>
                     <p className="text-sm text-orange-700 font-[Roboto] mb-4">
-                      Mahasiswa ini sedang berada pada tahap{" "}
-                      <strong>{selectedStudent.status}</strong> dan
-                      membutuhkan persetujuan Anda untuk melanjutkan ke tahap
-                      berikutnya dalam timeline.
+                      Mahasiswa ini sedang menunggu persetujuan pada salah satu
+                      tahap timeline (misalnya persetujuan proposal atau daftar
+                      sidang). Berikan persetujuan untuk melanjutkan ke step
+                      berikutnya.
                     </p>
                     <button
                       onClick={() => handleApproveStudent(selectedStudent.id)}
@@ -1308,14 +1951,15 @@ const readyForSidangCount = students.filter(
                         Tanggal Ajuan
                       </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
-                        {new Date(
-                          selectedTopic.tanggalAjuan
-                        ).toLocaleDateString("id-ID", {
-                          weekday: "long",
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
+                        {new Date(selectedTopic.tanggalAjuan).toLocaleDateString(
+                          "id-ID",
+                          {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )}
                       </p>
                     </div>
                   </div>
@@ -1357,6 +2001,160 @@ const readyForSidangCount = students.filter(
         )}
       </AnimatePresence>
 
+      {/* Bimbingan Approve Modal */}
+      <AnimatePresence>
+        {showBimbinganModal && selectedBimbinganStudent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setShowBimbinganModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 z-10">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <MessageSquare className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl text-gray-800 font-[Poppins]">
+                        Ajuan & Riwayat Bimbingan
+                      </h2>
+                      <p className="text-sm text-gray-600 font-[Roboto]">
+                        {selectedBimbinganStudent.nama} •{" "}
+                        {selectedBimbinganStudent.nrp}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowBimbinganModal(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {(() => {
+                  const pendingCount = getPendingBimbinganCount(
+                    selectedBimbinganStudent
+                  );
+                  const approvedCount = getApprovedBimbinganCount(
+                    selectedBimbinganStudent
+                  );
+                  return (
+                    <div className="mb-4 flex flex-wrap items-center gap-3">
+                      <span className="px-3 py-1.5 rounded-lg text-sm font-[Roboto] bg-gray-100 text-gray-800">
+                        Total bimbingan disetujui:{" "}
+                        <span className="font-semibold">{approvedCount}x</span>
+                      </span>
+                      <span className="px-3 py-1.5 rounded-lg text-sm font-[Roboto] bg-blue-50 text-blue-800 flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        Ajuan menunggu:{" "}
+                        <span className="font-semibold">{pendingCount}</span>
+                      </span>
+                      {pendingCount > 0 && (
+                        <button
+                          onClick={() =>
+                            handleApproveAllBimbingan(selectedBimbinganStudent.id)
+                          }
+                          className="ml-auto px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-[Roboto] flex items-center gap-1"
+                        >
+                          <Check className="w-4 h-4" />
+                          Approve semua ajuan
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  {selectedBimbinganStudent.bimbinganLog &&
+                  selectedBimbinganStudent.bimbinganLog.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedBimbinganStudent.bimbinganLog
+                        .slice()
+                        .sort((a, b) => a.ke - b.ke)
+                        .map((log) => (
+                          <div
+                            key={log.id}
+                            className="bg-white border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-4"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-[Roboto] font-semibold text-gray-800">
+                                  Bimbingan ke-{log.ke}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-[Roboto] border ${
+                                    log.status === "Disetujui"
+                                      ? "bg-green-50 text-green-700 border-green-200"
+                                      : "bg-orange-50 text-orange-700 border-orange-200"
+                                  }`}
+                                >
+                                  {log.status === "Disetujui"
+                                    ? "Disetujui"
+                                    : "Menunggu approval"}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-700 font-[Roboto] mb-1">
+                                {log.beritaAcara}
+                              </p>
+                              <p className="text-[10px] text-gray-500 font-[Roboto] flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {formatDateTime(log.waktu)}
+                              </p>
+                            </div>
+                            {log.status === "Menunggu" && (
+                              <button
+                                onClick={() =>
+                                  handleApproveSingleBimbingan(
+                                    selectedBimbinganStudent.id,
+                                    log.id
+                                  )
+                                }
+                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-[Roboto] flex items-center gap-1"
+                              >
+                                <Check className="w-3 h-3" />
+                                Approve
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center">
+                      <MessageSquare className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500 font-[Roboto]">
+                        Belum ada riwayat bimbingan untuk mahasiswa ini.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-6">
+                <button
+                  onClick={() => setShowBimbinganModal(false)}
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-[Roboto]"
+                >
+                  Tutup
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Guide Modal */}
       {isGuideModalOpen && (
         <GuideModal
@@ -1374,7 +2172,7 @@ const readyForSidangCount = students.filter(
             {
               title: "Lihat Detail dan Setujui Tahap",
               description:
-                "Klik tombol 'Lihat' pada setiap card mahasiswa untuk membuka detail, melihat timeline tahap, dan melakukan persetujuan pada tahap Menunggu Approval atau Daftar Sidang.",
+                "Klik tombol 'Lihat' pada setiap card mahasiswa untuk membuka detail, melihat timeline tahap, dan melakukan persetujuan pada tahapan yang membutuhkan approval.",
               imageUrl:
                 "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800",
             },

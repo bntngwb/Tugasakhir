@@ -591,17 +591,6 @@ export function PenawaranTopikDosen({ onNavigate }: PenawaranTopikDosenProps) {
               <p className="text-sm text-gray-500 font-[Roboto]">
                 © 2021-2025 Institut Teknologi Sepuluh Nopember
               </p>
-              <div className="flex items-center gap-2">
-                <div className="bg-blue-600 px-3 py-1 rounded flex items-center gap-2">
-                  <span className="text-white text-xs font-[Roboto] font-semibold">
-                    ADVANCING
-                  </span>
-                  <span className="text-white text-xs font-[Roboto] font-semibold">
-                    HUMANITY
-                  </span>
-                </div>
-                <div className="text-blue-600 font-bold text-lg">ITS</div>
-              </div>
             </div>
           </footer>
 

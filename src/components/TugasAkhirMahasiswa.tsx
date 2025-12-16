@@ -21,15 +21,105 @@ interface ThesisStudent {
   judulInd: string;
   judulEng: string;
   laboratorium: string;
+  // Status administratif (Disetujui, Ditolak, dsb) masih disimpan kalau nanti dibutuhkan
   status: string;
   pembimbing: string;
   semester: string;
   statusDetail: string;
   periodeSidang: string;
   jenisSidang: string;
+  // Timeline 13 langkah seperti di BimbinganAktifUpdated
+  timelineDates?: (string | null)[];
 }
 
-// Data awal mahasiswa
+// 13 langkah timeline proses (sinkron dengan BimbinganAktifUpdated.tsx)
+const TIMELINE_STEPS: { label: string }[] = [
+  { label: "Mendaftar proposal TA" }, // 0
+  { label: "Proposal TA disetujui" }, // 1
+  { label: "Mendaftar sidang proposal TA" }, // 2
+  { label: "Daftar sidang proposal TA disetujui" }, // 3
+  { label: "Sidang proposal TA selesai" }, // 4
+  { label: "Revisi sidang proposal TA disetujui" }, // 5
+  { label: "Mendaftar tugas akhir" }, // 6
+  { label: "Tugas akhir disetujui" }, // 7
+  { label: "Mendaftar sidang tugas akhir" }, // 8
+  { label: "Daftar Sidang tugas akhir disetujui" }, // 9
+  { label: "Sidang tugas akhir selesai" }, // 10
+  { label: "Revisi tugas akhir disetujui" }, // 11
+  { label: "Selesai" }, // 12
+];
+
+// Cari index step terakhir yang sudah punya tanggal
+const getCurrentStepIndex = (student: ThesisStudent): number => {
+  if (!student.timelineDates || student.timelineDates.length === 0) return -1;
+  let idx = -1;
+  const len = Math.min(student.timelineDates.length, TIMELINE_STEPS.length);
+  for (let i = 0; i < len; i++) {
+    if (student.timelineDates[i]) idx = i;
+  }
+  return idx;
+};
+
+// Status proses (badge + filter) berdasarkan timeline
+const getStatusFromTimeline = (student: ThesisStudent): string => {
+  const idx = getCurrentStepIndex(student);
+
+  if (idx < 0) {
+    return "Proposal";
+  }
+
+  if (idx >= 0 && idx <= 1) {
+    return "Proposal";
+  }
+
+  if (idx >= 2 && idx <= 4) {
+    return "Sidang Proposal";
+  }
+
+  if (idx === 5) {
+    return "Revisi Proposal";
+  }
+
+  if (idx >= 6 && idx <= 7) {
+    return "Tugas Akhir";
+  }
+
+  if (idx >= 8 && idx <= 10) {
+    return "Sidang Tugas Akhir";
+  }
+
+  if (idx === 11) {
+    return "Revisi Tugas Akhir";
+  }
+
+  return "Selesai";
+};
+
+const formatTimelineDate = (
+  dateStr: string | null | undefined
+): string => {
+  if (!dateStr) return "Belum selesai";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatDateId = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+};
+
+// Data awal mahasiswa (timeline dummy supaya status proses bisa dihitung)
 const initialStudents: ThesisStudent[] = [
   {
     id: 1,
@@ -43,9 +133,24 @@ const initialStudents: ThesisStudent[] = [
     status: "Disetujui",
     pembimbing: "Dr. Ahmad Saikhu, S.Kom., M.Kom.",
     semester: "Gasal 2024/2025",
-    statusDetail: "(468 hari pengerjaan)",
+    statusDetail: "",
     periodeSidang: "2024-10-01",
     jenisSidang: "Sidang Akhir",
+    timelineDates: [
+      "2023-09-01", // 0
+      "2023-09-05", // 1
+      "2023-09-10", // 2
+      "2023-09-15", // 3
+      "2023-09-20", // 4
+      "2023-09-25", // 5
+      "2024-02-01", // 6
+      "2024-02-10", // 7
+      "2024-03-01", // 8
+      "2024-03-10", // 9
+      "2024-04-01", // 10
+      "2024-04-15", // 11
+      "2024-05-01", // 12 (selesai)
+    ],
   },
   {
     id: 2,
@@ -59,9 +164,24 @@ const initialStudents: ThesisStudent[] = [
     status: "Disetujui",
     pembimbing: "Prof. Dini Adni Navastara, S.T., M.Sc., Ph.D.",
     semester: "Gasal 2024/2025",
-    statusDetail: "(468 hari pengerjaan)",
+    statusDetail: "",
     periodeSidang: "2024-10-03",
     jenisSidang: "Sidang Akhir",
+    timelineDates: [
+      "2023-10-01", // 0
+      "2023-10-10", // 1
+      "2023-11-01", // 2
+      "2023-11-10", // 3
+      "2023-11-20", // 4
+      "2023-12-05", // 5
+      "2024-02-10", // 6
+      "2024-02-20", // 7
+      "2024-03-05", // 8
+      "2024-03-15", // 9
+      "2024-04-05", // 10 (sidang TA selesai)
+      null, // 11
+      null, // 12
+    ],
   },
   {
     id: 3,
@@ -75,47 +195,139 @@ const initialStudents: ThesisStudent[] = [
     status: "Disetujui",
     pembimbing: "Dr. Retno Wardani, S.Kom., M.T.",
     semester: "Genap 2024/2025",
-    statusDetail: "(405 hari pengerjaan)",
+    statusDetail: "",
     periodeSidang: "2024-10-05",
     jenisSidang: "Sidang Akhir",
+    timelineDates: [
+      "2023-11-01", // 0
+      "2023-11-08", // 1
+      "2023-11-20", // 2
+      "2023-11-28", // 3
+      "2023-12-05", // 4
+      "2023-12-20", // 5
+      "2024-03-01", // 6
+      null, // 7
+      null, // 8
+      null, // 9
+      null, // 10
+      null, // 11
+      null, // 12
+    ],
   },
 ];
+
+type VisibleColumns = {
+  no: boolean;
+  mahasiswa: boolean;
+  semester: boolean;
+  pembimbing: boolean;
+  judul: boolean;
+  laboratorium: boolean;
+  statusProcess: boolean;
+  sidangTerakhir: boolean;
+  statusDetail: boolean;
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "Proposal":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+    case "Sidang Proposal":
+      return "bg-purple-100 text-purple-700 border-purple-200";
+    case "Revisi Proposal":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+    case "Tugas Akhir":
+      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    case "Sidang Tugas Akhir":
+      return "bg-indigo-100 text-indigo-700 border-indigo-200";
+    case "Revisi Tugas Akhir":
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    case "Selesai":
+      return "bg-green-100 text-green-700 border-green-200";
+    default:
+      return "bg-gray-100 text-gray-700 border-gray-200";
+  }
+};
+
+// Badge high-level di atas judul: Selesai / Pengerjaan / Gagal
+const getOverallBadgeLabel = (student: ThesisStudent): "Selesai" | "Pengerjaan" | "Gagal" => {
+  if (student.status === "Digagalkan oleh Admin") return "Gagal";
+  const detailed = getStatusFromTimeline(student);
+  if (detailed === "Selesai") return "Selesai";
+  return "Pengerjaan";
+};
+
+const getOverallBadgeColor = (label: "Selesai" | "Pengerjaan" | "Gagal") => {
+  switch (label) {
+    case "Selesai":
+      return "bg-green-100 text-green-700 border-green-200";
+    case "Gagal":
+      return "bg-red-100 text-red-700 border-red-200";
+    case "Pengerjaan":
+    default:
+      return "bg-blue-100 text-blue-700 border-blue-200";
+  }
+};
 
 export function TugasAkhirMahasiswa() {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [selectedLab, setSelectedLab] = useState("Semua Laboratorium");
-  const [selectedStatus, setSelectedStatus] = useState("Semua Status");
+  const [selectedStatus, setSelectedStatus] =
+    useState("Semua Status");
   const [selectedPembimbing, setSelectedPembimbing] = useState(
     "Semua Dosen Pembimbing"
   );
   const [selectedSemester, setSelectedSemester] =
     useState("Semua Semester");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showColumnSelector, setShowColumnSelector] = useState(false);
+  const [showColumnSelector, setShowColumnSelector] =
+    useState(false);
   const [selectedStudent, setSelectedStudent] =
     useState<ThesisStudent | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] =
+    useState(false);
 
-  // State untuk menyimpan list mahasiswa (agar status bisa berubah)
   const [studentList, setStudentList] =
     useState<ThesisStudent[]>(initialStudents);
 
-  // Column visibility state
-  const [visibleColumns, setVisibleColumns] = useState({
-    no: true,
-    mahasiswa: true,
-    judul: true,
-    laboratorium: true,
-    status: true,
-  });
+  const [visibleColumns, setVisibleColumns] =
+    useState<VisibleColumns>({
+      no: true,
+      mahasiswa: true,
+      semester: true,
+      pembimbing: true,
+      judul: true,
+      laboratorium: true,
+      statusProcess: true,
+      sidangTerakhir: true,
+      statusDetail: true,
+    });
+
+  const visibleColumnCount = Object.values(visibleColumns).filter(
+    Boolean
+  ).length;
+
+  const columnLabels: Record<keyof VisibleColumns, string> = {
+    no: "No.",
+    mahasiswa: "Mahasiswa",
+    semester: "Semester",
+    pembimbing: "Dosen Pembimbing",
+    judul: "Judul",
+    laboratorium: "Laboratorium",
+    statusProcess: "Status Proses",
+    sidangTerakhir: "Sidang Terakhir Diikuti",
+    statusDetail: "Status Detail",
+  };
 
   const filteredStudents = studentList.filter((student) => {
+    const derivedStatus = getStatusFromTimeline(student);
+
     const matchesLab =
       selectedLab === "Semua Laboratorium" ||
       student.laboratorium === selectedLab;
     const matchesStatus =
       selectedStatus === "Semua Status" ||
-      student.status === selectedStatus;
+      derivedStatus === selectedStatus;
     const matchesPembimbing =
       selectedPembimbing === "Semua Dosen Pembimbing" ||
       student.pembimbing === selectedPembimbing;
@@ -141,29 +353,11 @@ export function TugasAkhirMahasiswa() {
     );
   });
 
-  const toggleColumn = (column: keyof typeof visibleColumns) => {
-    setVisibleColumns({
-      ...visibleColumns,
-      [column]: !visibleColumns[column],
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Disetujui":
-      case "Diterima":
-        return "bg-green-100 text-green-700 border-green-200";
-      case "Disosialisasikan":
-        return "bg-blue-100 text-blue-700 border-blue-200";
-      case "Ditolak":
-        return "bg-red-100 text-red-700 border-red-200";
-      case "Menunggu":
-        return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      case "Digagalkan oleh Admin":
-        return "bg-gray-200 text-gray-600 border-gray-300";
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
-    }
+  const toggleColumn = (column: keyof VisibleColumns) => {
+    setVisibleColumns((prev) => ({
+      ...prev,
+      [column]: !prev[column],
+    }));
   };
 
   const handleViewDetail = (student: ThesisStudent) => {
@@ -179,6 +373,14 @@ export function TugasAkhirMahasiswa() {
       )
     );
     toast.error("Status tugas akhir telah digagalkan oleh admin");
+  };
+
+  const getSidangTerakhirText = (student: ThesisStudent) => {
+    if (!student.jenisSidang && !student.periodeSidang) return "-";
+    const dateText = formatDateId(student.periodeSidang);
+    if (!student.jenisSidang) return dateText;
+    if (!student.periodeSidang) return student.jenisSidang;
+    return `${student.jenisSidang} – ${dateText}`;
   };
 
   return (
@@ -205,6 +407,8 @@ export function TugasAkhirMahasiswa() {
             </div>
             <p className="text-sm text-gray-600 font-[Roboto]">
               Database tugas akhir mahasiswa dari program studi Anda
+              beserta status proses berdasarkan timeline proposal
+              hingga sidang tugas akhir.
             </p>
           </div>
 
@@ -234,22 +438,34 @@ export function TugasAkhirMahasiswa() {
                 <ChevronDown className="absolute right-3 bottom-2 w-4 h-4 text-gray-500 pointer-events-none" />
               </div>
 
-              {/* Status Filter */}
+              {/* Status Proses Filter */}
               <div className="relative">
                 <label className="text-xs text-gray-600 font-[Roboto] mb-1 block">
-                  Status
+                  Status Proses
                 </label>
                 <select
                   value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  onChange={(e) =>
+                    setSelectedStatus(e.target.value)
+                  }
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-[Roboto] text-sm appearance-none bg-white"
                 >
                   <option value="Semua Status">Semua Status</option>
-                  <option value="Disetujui">Disetujui</option>
-                  <option value="Menunggu">Menunggu</option>
-                  <option value="Ditolak">Ditolak</option>
-                  {/* Kalau mau, bisa tambahkan ini agar bisa difilter khusus */}
-                  {/* <option value="Digagalkan oleh Admin">Digagalkan oleh Admin</option> */}
+                  <option value="Proposal">Proposal</option>
+                  <option value="Sidang Proposal">
+                    Sidang Proposal
+                  </option>
+                  <option value="Revisi Proposal">
+                    Revisi Proposal
+                  </option>
+                  <option value="Tugas Akhir">Tugas Akhir</option>
+                  <option value="Sidang Tugas Akhir">
+                    Sidang Tugas Akhir
+                  </option>
+                  <option value="Revisi Tugas Akhir">
+                    Revisi Tugas Akhir
+                  </option>
+                  <option value="Selesai">Selesai</option>
                 </select>
                 <ChevronDown className="absolute right-3 bottom-2 w-4 h-4 text-gray-500 pointer-events-none" />
               </div>
@@ -329,34 +545,28 @@ export function TugasAkhirMahasiswa() {
                     Tampilkan
                   </button>
                   {showColumnSelector && (
-                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-10 min-w-[200px]">
+                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-10 min-w-[220px]">
                       <div className="space-y-2">
-                        {Object.entries(visibleColumns).map(
-                          ([key, value]) => (
-                            <label
-                              key={key}
-                              className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={value}
-                                onChange={() =>
-                                  toggleColumn(
-                                    key as keyof typeof visibleColumns
-                                  )
-                                }
-                                className="w-4 h-4 text-blue-500 rounded"
-                              />
-                              <span className="text-sm font-[Roboto] text-gray-700 capitalize">
-                                {key === "no"
-                                  ? "No."
-                                  : key === "mahasiswa"
-                                  ? "Mahasiswa"
-                                  : key}
-                              </span>
-                            </label>
-                          )
-                        )}
+                        {(
+                          Object.entries(
+                            visibleColumns
+                          ) as [keyof VisibleColumns, boolean][]
+                        ).map(([key, value]) => (
+                          <label
+                            key={key}
+                            className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={value}
+                              onChange={() => toggleColumn(key)}
+                              className="w-4 h-4 text-blue-500 rounded"
+                            />
+                            <span className="text-sm font-[Roboto] text-gray-700">
+                              {columnLabels[key]}
+                            </span>
+                          </label>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -381,57 +591,81 @@ export function TugasAkhirMahasiswa() {
 
           {/* Table */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    {visibleColumns.no && (
-                      <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700">
-                        No.
-                      </th>
-                    )}
-                    {visibleColumns.mahasiswa && (
-                      <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700">
-                        Mahasiswa
-                      </th>
-                    )}
-                    {visibleColumns.judul && (
-                      <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700">
-                        Judul
-                      </th>
-                    )}
-                    {visibleColumns.laboratorium && (
-                      <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700">
-                        Laboratorium
-                      </th>
-                    )}
-                    {visibleColumns.status && (
-                      <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700">
-                        Status
-                      </th>
-                    )}
-                    <th className="px-4 py-3 text-center text-sm font-[Poppins] text-gray-700">
-                      Aksi
+            <table className="w-full table-auto">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  {visibleColumns.no && (
+                    <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700 w-[60px]">
+                      No.
                     </th>
+                  )}
+                  {visibleColumns.mahasiswa && (
+                    <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700 w-[220px]">
+                      Mahasiswa
+                    </th>
+                  )}
+                  {visibleColumns.semester && (
+                    <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700 w-[150px]">
+                      Semester
+                    </th>
+                  )}
+                  {visibleColumns.pembimbing && (
+                    <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700 w-[220px]">
+                      Dosen Pembimbing
+                    </th>
+                  )}
+                  {visibleColumns.judul && (
+                    <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700 w-[380px]">
+                      Judul
+                    </th>
+                  )}
+                  {visibleColumns.laboratorium && (
+                    <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700 w-[130px]">
+                      Laboratorium
+                    </th>
+                  )}
+                  {visibleColumns.statusProcess && (
+                    <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700 w-[150px]">
+                      Status Proses
+                    </th>
+                  )}
+                  {visibleColumns.sidangTerakhir && (
+                    <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700 w-[210px]">
+                      Sidang Terakhir Diikuti
+                    </th>
+                  )}
+                  {visibleColumns.statusDetail && (
+                    <th className="px-4 py-3 text-left text-sm font-[Poppins] text-gray-700 w-[160px]">
+                      Status Detail / Timeline
+                    </th>
+                  )}
+                  <th className="px-4 py-3 text-center text-sm font-[Poppins] text-gray-700 w-[140px]">
+                    Aksi
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={visibleColumnCount + 1}
+                      className="px-4 py-12 text-center"
+                    >
+                      <p className="text-gray-500 font-[Roboto]">
+                        Tidak ada data yang ditemukan
+                      </p>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredStudents.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="px-4 py-12 text-center"
-                      >
-                        <p className="text-gray-500 font-[Roboto]">
-                          Tidak ada data yang ditemukan
-                        </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredStudents.map((student, index) => (
+                ) : (
+                  filteredStudents.map((student, index) => {
+                    const derivedStatus =
+                      getStatusFromTimeline(student);
+                    const overallLabel = getOverallBadgeLabel(student);
+
+                    return (
                       <tr
                         key={student.id}
-                        className="hover:bg-gray-50 transition-colors"
+                        className="hover:bg-gray-50 transition-colors align-top"
                       >
                         {visibleColumns.no && (
                           <td className="px-4 py-4 text-sm text-gray-700 font-[Roboto]">
@@ -439,7 +673,7 @@ export function TugasAkhirMahasiswa() {
                           </td>
                         )}
                         {visibleColumns.mahasiswa && (
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-4 align-top">
                             <p className="text-sm text-gray-800 font-[Poppins] font-medium">
                               {student.nama}
                             </p>
@@ -448,40 +682,81 @@ export function TugasAkhirMahasiswa() {
                             </p>
                           </td>
                         )}
+                        {visibleColumns.semester && (
+                          <td className="px-4 py-4 align-top">
+                            <p className="text-sm text-gray-800 font-[Roboto]">
+                              {student.semester}
+                            </p>
+                          </td>
+                        )}
+                        {visibleColumns.pembimbing && (
+                          <td className="px-4 py-4 align-top">
+                            <p className="text-sm text-gray-800 font-[Roboto]">
+                              {student.pembimbing}
+                            </p>
+                          </td>
+                        )}
                         {visibleColumns.judul && (
-                          <td className="px-4 py-4 max-w-lg">
+                          <td className="px-4 py-4 align-top">
                             <div
-                              className={`inline-block px-2 py-1 rounded text-xs mb-2 font-[Roboto] ${getStatusColor(
-                                student.status
+                              className={`inline-flex items-center gap-2 px-2 py-1 rounded text-xs mb-2 font-[Roboto] border ${getOverallBadgeColor(
+                                overallLabel
                               )}`}
                             >
-                              {student.status}
+                              <span className="font-semibold">
+                                {overallLabel}
+                              </span>
                             </div>
-                            <p className="text-sm text-gray-800 font-[Poppins] mb-1">
+                            <p className="text-sm text-gray-800 font-[Poppins] mb-1 leading-snug">
                               {student.judulInd}
                             </p>
-                            <p className="text-xs text-gray-500 font-[Roboto] italic">
+                            <p className="text-xs text-gray-500 font-[Roboto] italic leading-snug">
                               {student.judulEng}
                             </p>
                           </td>
                         )}
                         {visibleColumns.laboratorium && (
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-4 align-top">
                             <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-[Roboto] border border-blue-200">
                               {student.laboratorium}
                             </span>
                           </td>
                         )}
-                        {visibleColumns.status && (
-                          <td className="px-4 py-4">
-                            <p className="text-sm text-gray-800 font-[Roboto]">
-                              {student.statusDetail}
-                            </p>
+                        {visibleColumns.statusProcess && (
+                          <td className="px-4 py-4 align-top">
+                            <span
+                              className={`inline-block px-3 py-1 rounded-full text-xs font-[Roboto] border ${getStatusColor(
+                                derivedStatus
+                              )}`}
+                            >
+                              {derivedStatus}
+                            </span>
                           </td>
                         )}
-                        <td className="px-4 py-4">
+                        {visibleColumns.sidangTerakhir && (
+                          <td className="px-4 py-4 align-top">
+                            <div className="flex items-start gap-2 text-sm text-gray-800 font-[Roboto]">
+                              <Calendar className="w-4 h-4 text-gray-500 mt-[2px]" />
+                              <span className="leading-snug">
+                                {getSidangTerakhirText(student)}
+                              </span>
+                            </div>
+                          </td>
+                        )}
+                        {visibleColumns.statusDetail && (
+                          <td className="px-4 py-4 align-top">
+                            <button
+                              onClick={() =>
+                                handleViewDetail(student)
+                              }
+                              className="text-sm text-blue-600 hover:text-blue-700 hover:underline font-[Roboto]"
+                            >
+                              Lihat timeline
+                            </button>
+                          </td>
+                        )}
+                        <td className="px-4 py-4 align-top">
                           <div className="flex items-center justify-center gap-2">
-                            {/* Tombol LIHAT hanya muncul jika status bukan Digagalkan oleh Admin */}
                             {student.status !==
                               "Digagalkan oleh Admin" && (
                               <button
@@ -493,8 +768,6 @@ export function TugasAkhirMahasiswa() {
                                 Lihat
                               </button>
                             )}
-
-                            {/* Tombol GAGALKAN selalu ada */}
                             <button
                               onClick={() =>
                                 handleGagalkan(student.id)
@@ -506,11 +779,11 @@ export function TugasAkhirMahasiswa() {
                           </div>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
 
             {/* Pagination */}
             {filteredStudents.length > 0 && (
@@ -602,15 +875,21 @@ export function TugasAkhirMahasiswa() {
                           {selectedStudent.laboratorium}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-[Roboto] border ${getStatusColor(
-                            selectedStudent.status
-                          )}`}
-                        >
-                          {selectedStudent.status}
-                        </span>
-                      </div>
+                      {(() => {
+                        const derivedStatus =
+                          getStatusFromTimeline(selectedStudent);
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-[Roboto] border ${getStatusColor(
+                                derivedStatus
+                              )}`}
+                            >
+                              {derivedStatus}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -669,38 +948,81 @@ export function TugasAkhirMahasiswa() {
                     </div>
                   </div>
 
-                  {/* Status Detail */}
+                  {/* Timeline Proses */}
                   <div>
                     <label className="text-sm text-gray-600 font-[Roboto] mb-2 block">
-                      Status Detail
+                      Timeline Proses
                     </label>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-800 font-[Roboto]">
-                        {selectedStudent.statusDetail}
-                      </p>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <div className="space-y-4">
+                        {TIMELINE_STEPS.map((step, idx) => {
+                          const currentIndex = getCurrentStepIndex(
+                            selectedStudent
+                          );
+                          const isActive = currentIndex >= idx;
+                          const isNextActive = currentIndex >= idx + 1;
+                          const isLast =
+                            idx === TIMELINE_STEPS.length - 1;
+
+                          const stepDate =
+                            selectedStudent.timelineDates &&
+                            selectedStudent.timelineDates[idx];
+
+                          return (
+                            <div
+                              key={step.label}
+                              className="flex items-start gap-3"
+                            >
+                              <div className="flex flex-col items-center">
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
+                                    isActive
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-gray-300 text-gray-600"
+                                  }`}
+                                >
+                                  {idx + 1}
+                                </div>
+                                {!isLast && (
+                                  <div
+                                    className={`w-px flex-1 mt-1 ${
+                                      isNextActive
+                                        ? "bg-blue-600"
+                                        : "bg-gray-300"
+                                    }`}
+                                  />
+                                )}
+                              </div>
+                              <div className="pt-1">
+                                <p
+                                  className={`text-xs font-[Roboto] ${
+                                    isActive
+                                      ? "text-blue-700 font-semibold"
+                                      : "text-gray-600"
+                                  }`}
+                                >
+                                  {step.label}
+                                </p>
+                                <p className="text-[10px] text-gray-500 font-[Roboto] mt-1">
+                                  {formatTimelineDate(stepDate ?? null)}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Period Sidang */}
+                  {/* Sidang Terakhir */}
                   <div>
                     <label className="text-sm text-gray-600 font-[Roboto] mb-2 block">
-                      Periode Sidang
+                      Sidang Terakhir Diikuti
                     </label>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <p className="text-sm text-gray-800 font-[Roboto]">
-                        {selectedStudent.periodeSidang}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Jenis Sidang */}
-                  <div>
-                    <label className="text-sm text-gray-600 font-[Roboto] mb-2 block">
-                      Jenis Sidang
-                    </label>
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <p className="text-sm text-gray-800 font-[Roboto]">
-                        {selectedStudent.jenisSidang}
+                      <p className="text-sm text-gray-800 font-[Roboto] flex items-start gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500 mt-[2px]" />
+                        <span>{getSidangTerakhirText(selectedStudent)}</span>
                       </p>
                     </div>
                   </div>
@@ -730,28 +1052,28 @@ export function TugasAkhirMahasiswa() {
           {
             title: "Database Tugas Akhir",
             description:
-              "Halaman ini menampilkan database lengkap tugas akhir mahasiswa dari program studi Anda. Informasi yang ditampilkan meliputi nama mahasiswa, NRP, judul tugas akhir (dalam Bahasa Indonesia dan Inggris), laboratorium, status, dan detail timeline pengerjaan.",
+              "Halaman ini menampilkan database lengkap tugas akhir mahasiswa, termasuk informasi pembimbing, semester, dan status proses berdasarkan timeline dari proposal hingga sidang tugas akhir.",
             imageUrl:
               "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYW5hZ2UlMjBzZXR0aW5nc3xlbnwxfHx8fDE3Mzc4MDAwMDB8MA&ixlib=rb-4.1.0&q=80&w=1080",
           },
           {
             title: "Filter dan Pencarian",
             description:
-              "Gunakan filter untuk menyaring data berdasarkan laboratorium, status, dosen pembimbing, dan semester ajuan. Kolom pencarian membantu Anda menemukan mahasiswa atau topik tertentu dengan cepat berdasarkan nama, NRP, atau kata kunci dalam judul.",
+              "Gunakan filter untuk menyaring data berdasarkan laboratorium, status proses (Proposal, Sidang Proposal, Tugas Akhir, dan seterusnya), dosen pembimbing, serta semester. Kolom pencarian membantu menemukan mahasiswa atau topik tertentu dengan cepat.",
             imageUrl:
               "https://images.unsplash.com/photo-1708320254298-109008440fd1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaWx0ZXIlMjBzZWFyY2glMjBpbnRlcmZhY2V8ZW58MXx8fHwxNzYzNjM5MjIyfDA&ixlib=rb-4.1.0&q=80&w=1080",
           },
           {
             title: "Export dan Tampilan Kolom",
             description:
-              "Klik tombol 'Excel' untuk mengekspor data ke spreadsheet. Gunakan tombol 'Tampilkan' untuk mengatur kolom mana yang ingin ditampilkan atau disembunyikan. Ini membantu Anda fokus pada informasi yang paling relevan dengan kebutuhan Anda.",
+              "Klik tombol 'Excel' untuk mengekspor data ke spreadsheet. Gunakan tombol 'Tampilkan' untuk mengatur kolom tabel yang ingin ditampilkan atau disembunyikan agar tampilan tetap ringkas tanpa perlu geser ke samping.",
             imageUrl:
               "https://images.unsplash.com/photo-1460925895917-afdab827c52f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9ncmVzcyUyMHRyYWNraW5nfGVufDF8fHx8MTczNzgwMDAwMHww&ixlib=rb-4.1.0&q=80&w=1080",
           },
           {
-            title: "Status dan Timeline",
+            title: "Status Proses & Timeline",
             description:
-              "Status tugas akhir ditandai dengan label berwarna: hijau untuk 'Disetujui', kuning untuk 'Menunggu', dan merah untuk 'Ditolak'. Kolom status detail menampilkan informasi kapan tugas akhir disosialisasikan dan berapa lama waktu pengerjaan yang telah berlalu.",
+              "Status proses diturunkan dari timeline (Proposal, Sidang Proposal, Revisi, Tugas Akhir, Sidang Tugas Akhir, hingga Selesai). Klik 'Lihat timeline' pada kolom Status Detail untuk melihat visual timeline lengkap beserta timestamp setiap tahapan.",
             imageUrl:
               "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsaXN0JTIwbWFuYWdlbWVudHxlbnwxfHx8fDE3Mzc4MDAwMDB8MA&ixlib=rb-4.1.0&q=80&w=1080",
           },

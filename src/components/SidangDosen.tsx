@@ -235,10 +235,11 @@ export function SidangDosen({ initialFilter }: SidangDosenProps) {
       return acc;
     }, {} as { [key: string]: HearingEvent[] });
 
-  // default bulan kalender: pakai tanggal sidang pertama
-  const firstDate =
-    parseTanggalToDate(sidangListWithOverride[0]?.tanggal ?? "") ??
-    new Date();
+  // ==========================
+  // Default "hari ini" = 13 Januari 2026
+  // dan kalender juga default di bulan itu
+  // ==========================
+  const defaultCalendarDate = new Date(2026, 0, 13); // 0 = Januari
 
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -259,7 +260,7 @@ export function SidangDosen({ initialFilter }: SidangDosenProps) {
     initialFilter ?? null
   );
 
-  const [currentDate, setCurrentDate] = useState(firstDate);
+  const [currentDate, setCurrentDate] = useState(defaultCalendarDate);
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
@@ -397,7 +398,9 @@ export function SidangDosen({ initialFilter }: SidangDosenProps) {
     const lastDay = new Date(year, month + 1, 0);
     const firstDayOfWeek = firstDay.getDay();
     const totalCells = 42; // 6 minggu
-    const today = new Date();
+
+    // "Hari ini" dikunci ke 13 Januari 2026
+    const today = defaultCalendarDate;
 
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">

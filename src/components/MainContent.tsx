@@ -418,7 +418,7 @@ export function MainContent({ onNavigate, proposals, takenHearings, onEditPropos
           <div className="grid grid-cols-3 gap-4">
             {/* Tugas Akhir Card */}
             <div 
-              onClick={() => onNavigate("tugas-akhir")}
+              onClick={() => onNavigate("Tugas Akhir")}
               className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer"
             >
               <div className="mb-4">
@@ -439,7 +439,7 @@ export function MainContent({ onNavigate, proposals, takenHearings, onEditPropos
                 if (latestProposal) {
                   onEditProposal(latestProposal);
                 } else {
-                  onNavigate("tugas-akhir");
+                  onNavigate("Tugas Akhir");
                 }
               }}
               className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer"
@@ -483,7 +483,7 @@ export function MainContent({ onNavigate, proposals, takenHearings, onEditPropos
                 if (latestHearing) {
                   onViewHearingDetail(latestHearing);
                 } else {
-                  onNavigate("sidang");
+                  onNavigate("Sidang");
                 }
               }}
               className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative hover:shadow-lg transition-shadow duration-200 cursor-pointer"
