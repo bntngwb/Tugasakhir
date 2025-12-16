@@ -13,7 +13,6 @@
   - fix aproval ✅
 
   Dosen 
-  - fix integerating data ❌
   - fix alur logic bimbingan aktif ✅
   - fix alur logic sidang ✅
   - fix penilaian ✅
@@ -24,4 +23,7 @@
   - fix penjadwalan ✅
   - fix ubah nilai ✅
   - fix page jadwal sidang ✅
-  - no fix alokasi dosen ❌
+  - fix alokasi dosen ✅
+  - fix tugas akhir mahasiswa ✅
+
+DONEEE BISMILLAH
