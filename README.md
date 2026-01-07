@@ -1,11 +1,11 @@
 
-  ## Running the code
+  ## Menjalankan Proyek
 
-  Run `npm i` to install the dependencies.
+  jalankan `npm i` untuk install semua dependencies.
 
-  Run `npm run dev` to start the development server.
+  jalankan `npm run dev` untuk memnjalankan proyek pada port local.
 
-  ## Project status
+  ## Status Proyek 
 
   Mahasiswa 
   - fix penawaran topik ✅
@@ -25,5 +25,3 @@
   - fix page jadwal sidang ✅
   - fix alokasi dosen ✅
   - fix tugas akhir mahasiswa ✅
-
-DONEEE BISMILLAH
