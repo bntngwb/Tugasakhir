@@ -2,18 +2,16 @@ import { useState } from "react";
 import {
   ArrowLeft,
   Calendar,
-  MapPin,
   Users,
   FileText,
-  Clock,
   Plus,
-  Check,
   Download,
   AlertCircle,
   BookOpen,
   X,
   Paperclip,
   CheckCircle2,
+  Check,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner@2.0.3";
@@ -81,21 +79,24 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
     "Hadir" | "Tidak Hadir" | "Izin / Sakit"
   >("Hadir");
 
-  const [hasSavedTemporaryScore, setHasSavedTemporaryScore] = useState(false);
+  const [hasSavedTemporaryScore, setHasSavedTemporaryScore] =
+    useState(false);
   const [hasSavedFinalScore, setHasSavedFinalScore] = useState(false);
   const [hasSavedSidangDecision, setHasSavedSidangDecision] =
     useState(false);
   const [hasApprovedRevision, setHasApprovedRevision] = useState(false);
 
-  const [temporaryScore, setTemporaryScore] = useState<number | null>(null);
-  const [temporaryGrade, setTemporaryGrade] = useState<string | null>(null);
+  const [temporaryScore, setTemporaryScore] = useState<number | null>(
+    null
+  );
+  const [temporaryGrade, setTemporaryGrade] = useState<string | null>(
+    null
+  );
   const [finalScore, setFinalScore] = useState<number | null>(null);
   const [finalGrade, setFinalGrade] = useState<string | null>(null);
 
   const [lastTemporarySaveAt, setLastTemporarySaveAt] =
     useState<Date | null>(null);
-
-  const [isRevisiApproved, setIsRevisiApproved] = useState(false);
 
   const [revisiList, setRevisiList] = useState<Revisi[]>([
     {
@@ -179,6 +180,9 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
       hasil: 0,
     },
   ]);
+
+  // NEW: konfirmasi simpan nilai
+  const [showSaveNilaiConfirm, setShowSaveNilaiConfirm] = useState(false);
 
   // =====================================================
   // FORCE RESET STATUS DENGAN VERSION (tanpa DevTools)
@@ -286,7 +290,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
 
   const sidangData = getSidangData(sidangId);
 
-  // status awal baca dari sessionStorage jika sudah pernah diubah
   const initialStatusFromStorage =
     typeof window !== "undefined"
       ? (window.sessionStorage.getItem(
@@ -385,7 +388,8 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
     return "-";
   };
 
-  const handleSimpanNilai = () => {
+  // NEW: fungsi yang benar-benar menyimpan nilai (dipanggil dari konfirmasi)
+  const confirmSaveNilai = () => {
     const total = parseFloat(calculateTotalNilai().toFixed(2));
     const grade = getGradeFromScore(total);
 
@@ -398,7 +402,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
         `Nilai sementara disimpan (${total.toFixed(2)} – ${grade})`
       );
 
-      // RULE: Perlu Dinilai (awal) -> Pengerjaan Revisi
       if (statusPengerjaan === "Perlu Dinilai" && !hasApprovedRevision) {
         setStatusAndPersist("Pengerjaan Revisi");
       }
@@ -406,12 +409,17 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
       setFinalScore(total);
       setFinalGrade(grade);
       setHasSavedFinalScore(true);
-      toast.success(
-        `Nilai akhir disimpan (${total.toFixed(2)} – ${grade})`
-      );
+      toast.success(`Nilai akhir disimpan (${total.toFixed(2)} – ${grade})`);
     }
 
+    // hanya tutup feedback card
+    setShowSaveNilaiConfirm(false);
+  };
+
+  // SIMPAN NILAI: tutup modal form lalu munculkan feedback card
+  const handleSimpanNilai = () => {
     setShowFormNilai(false);
+    setShowSaveNilaiConfirm(true);
   };
 
   const handleSimpanKeputusan = () => {
@@ -424,7 +432,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
     setShowKeputusanSidang(false);
   };
 
-  // Selesai pada tahap Perlu Nilai Permanen (setelah revisi di-approve)
   const handleSimpanPermanen = () => {
     const role = sidangData.statusRole as Role;
 
@@ -455,22 +462,17 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
   };
 
   const handleApproveRevisi = () => {
-    setIsRevisiApproved(true);
     setHasApprovedRevision(true);
     setShowTambahRevisi(false);
     setNewRevisi("");
     setRevisiFile(null);
     toast.success("Revisi mahasiswa disetujui");
-
-    // Setelah approve revisi → status jadi "Perlu Nilai Permanen"
-    // (tetap akan dihitung di kartu/filter 'Perlu Dinilai' di halaman SidangDosen)
     setStatusAndPersist("Perlu Nilai Permanen");
   };
 
   const role = sidangData.statusRole as Role;
 
   const renderButtonsByRole = () => {
-    // Menunggu / Dalam Sidang -> view only
     if (
       statusPengerjaan === "Menunggu Sidang" ||
       statusPengerjaan === "Dalam Sidang"
@@ -478,7 +480,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
       return null;
     }
 
-    // Tahap PERLU DINILAI (awal, sebelum revisi)
     if (statusPengerjaan === "Perlu Dinilai") {
       if (role === "Ketua Sidang") {
         return (
@@ -502,7 +503,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
         );
       }
 
-      // Penguji / Pembimbing – awal
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
@@ -517,9 +517,7 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
           <button
             onClick={() => {
               if (!hasSavedTemporaryScore) {
-                toast.error(
-                  "Harap simpan nilai sementara terlebih dahulu."
-                );
+                toast.error("Harap simpan nilai sementara terlebih dahulu.");
                 return;
               }
               toast.success("Penilaian sementara Anda tersimpan.");
@@ -532,7 +530,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
       );
     }
 
-    // Tahap PENGERJAAN REVISI
     if (statusPengerjaan === "Pengerjaan Revisi") {
       return (
         <div className="px-4 py-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800 font-[Roboto]">
@@ -542,7 +539,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
       );
     }
 
-    // Tahap PERLU APPROVAL (revisi sudah dikumpulkan, menunggu approve)
     if (statusPengerjaan === "Perlu Approval") {
       return (
         <div className="px-4 py-3 bg-yellow-50 border border-yellow-100 rounded-lg text-sm text-yellow-800 font-[Roboto]">
@@ -554,7 +550,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
       );
     }
 
-    // Tahap PERLU NILAI PERMANEN (setelah revisi di-approve)
     if (statusPengerjaan === "Perlu Nilai Permanen") {
       if (role === "Ketua Sidang") {
         return (
@@ -584,7 +579,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
         );
       }
 
-      // Penguji / Pembimbing – fase akhir
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
@@ -599,9 +593,7 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
           <button
             onClick={() => {
               if (!hasSavedFinalScore) {
-                toast.error(
-                  "Harap simpan nilai akhir terlebih dahulu."
-                );
+                toast.error("Harap simpan nilai akhir terlebih dahulu.");
                 return;
               }
               toast.success("Nilai akhir Anda disimpan permanen.");
@@ -628,7 +620,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
   const totalNilaiNow = parseFloat(calculateTotalNilai().toFixed(2));
   const gradeNow = getGradeFromScore(totalNilaiNow);
 
-  // RINGKASAN NILAI DI HEADER
   const renderHeaderScorePill = () => {
     if (finalScore !== null && finalGrade) {
       return (
@@ -857,7 +848,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                   Catatan Revisi
                 </h2>
 
-                {/* Tambah revisi hanya sebelum revisi di-approve */}
                 {!hasApprovedRevision &&
                   (statusPengerjaan === "Perlu Dinilai" ||
                     statusPengerjaan === "Pengerjaan Revisi") && (
@@ -873,7 +863,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                   )}
               </div>
 
-              {/* Info banner */}
               {statusPengerjaan === "Perlu Dinilai" && (
                 <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg mb-4">
                   <AlertCircle className="w-5 h-5 text-orange-600" />
@@ -1035,7 +1024,7 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
             </div>
           )}
 
-        {/* File Revisi (Perlu Approval / setelah revisi) */}
+        {/* File Revisi */}
         {(statusPengerjaan === "Perlu Approval" ||
           statusPengerjaan === "Perlu Dinilai" ||
           statusPengerjaan === "Perlu Nilai Permanen" ||
@@ -1073,19 +1062,19 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
             {statusPengerjaan === "Perlu Approval" && (
               <button
                 onClick={handleApproveRevisi}
-                disabled={isRevisiApproved}
+                disabled={hasApprovedRevision}
                 className={`w-full px-4 py-3 rounded-lg font-[Roboto] flex items-center justify-center gap-2 text-sm ${
-                  isRevisiApproved
+                  hasApprovedRevision
                     ? "bg-green-50 text-green-700 border border-green-300 cursor-default"
                     : "bg-white text-gray-800 border border-gray-300 hover:bg-gray-50"
                 }`}
               >
                 <CheckCircle2
                   className={`w-5 h-5 ${
-                    isRevisiApproved ? "text-green-600" : "text-gray-500"
+                    hasApprovedRevision ? "text-green-600" : "text-gray-500"
                   }`}
                 />
-                {isRevisiApproved
+                {hasApprovedRevision
                   ? "Revisi sudah disetujui"
                   : "Setujui revisi mahasiswa"}
               </button>
@@ -1145,7 +1134,7 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                 </button>
               </div>
 
-              {/* Live score di header modal */}
+              {/* Live score */}
               <div className="px-6 pt-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200">
                   <span className="text-xs text-gray-500 font-[Roboto]">
@@ -1266,6 +1255,66 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
         )}
       </AnimatePresence>
 
+      {/* Modal Konfirmasi Simpan Nilai */}
+      <AnimatePresence>
+        {showSaveNilaiConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            onClick={() => setShowSaveNilaiConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-200 p-6"
+            >
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-9 h-9 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-base font-[Poppins] text-gray-800">
+                    Simpan nilai sekarang?
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-600 font-[Roboto]">
+                    Apakah Anda sudah ingin menyimpan nilai?
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500 font-[Roboto]">
+                    Nilai masih tersimpan sementara sampai nilai disimpan
+                    permanen.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSaveNilaiConfirm(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => setShowSaveNilaiConfirm(false)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-[Roboto] text-gray-700 hover:bg-gray-50"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmSaveNilai}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-sm font-[Roboto] text-white hover:bg-blue-700"
+                >
+                  Simpan nilai
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Modal Keputusan Sidang */}
       <AnimatePresence>
         {showKeputusanSidang && (
@@ -1301,7 +1350,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                   bersangkutan.
                 </p>
 
-                {/* Hasil Options */}
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <button
@@ -1426,7 +1474,6 @@ export function DetailSidang({ sidangId }: DetailSidangProps) {
                   </div>
                 </div>
 
-                {/* Kehadiran */}
                 <div className="space-y-2">
                   <p className="text-sm text-gray-700 font-[Roboto]">
                     Kehadiran Mahasiswa
