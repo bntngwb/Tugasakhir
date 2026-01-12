@@ -14,10 +14,13 @@ import {
   Check,
   ChevronUp,
   MessageSquare,
+  FileCheck,
+  Gavel,
+  Filter,
 } from "lucide-react";
 import { GuideModal } from "./GuideModal";
 import { motion, AnimatePresence } from "motion/react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface BimbinganEntry {
   id: number;
@@ -25,6 +28,13 @@ interface BimbinganEntry {
   beritaAcara: string;
   waktu: string; // ISO atau string biasa
   status: "Menunggu" | "Disetujui";
+}
+
+// Tambahan interface untuk history kegagalan timeline
+interface FailedHistory {
+  stepIndex: number;
+  date: string;
+  note: string;
 }
 
 interface Student {
@@ -39,7 +49,6 @@ interface Student {
   pembimbing1: string;
   pembimbing2: string;
   tahap: "Proposal" | "Tugas Akhir";
-  // progress field lama diabaikan, progress dihitung dari timeline
   progress: number;
   status:
     | "Proposal"
@@ -50,8 +59,9 @@ interface Student {
     | "Revisi Tugas Akhir"
     | "Selesai";
   jumlahBimbingan: number;
-  needsApproval: boolean; // legacy, sekarang tidak dipakai; approval dari hidden state timeline
+  needsApproval: boolean;
   timelineDates?: (string | null)[];
+  failedHistory?: FailedHistory[]; // New: Untuk skenario gagal
   bimbinganLog?: BimbinganEntry[];
 }
 
@@ -72,26 +82,28 @@ interface BimbinganAktifProps {
 // 13 langkah timeline proses bimbingan
 const TIMELINE_STEPS: { label: string }[] = [
   { label: "Mendaftar proposal TA" }, // 0
-  { label: "Proposal TA disetujui" }, // 1 (approval #1)
+  { label: "Proposal TA disetujui" }, // 1 (Approval TA)
   { label: "Mendaftar sidang proposal TA" }, // 2
-  { label: "Daftar sidang proposal TA disetujui" }, // 3 (approval #2)
+  { label: "Daftar sidang proposal TA disetujui" }, // 3 (Approval Sidang)
   { label: "Sidang proposal TA selesai" }, // 4
-  { label: "Revisi sidang proposal TA disetujui" }, // 5
+  { label: "Revisi sidang proposal TA disetujui" }, // 5 (Approval Revisi)
   { label: "Mendaftar tugas akhir" }, // 6
-  { label: "Tugas akhir disetujui" }, // 7 (approval #3)
+  { label: "Tugas akhir disetujui" }, // 7 (Approval TA)
   { label: "Mendaftar sidang tugas akhir" }, // 8
-  { label: "Daftar Sidang tugas akhir disetujui" }, // 9 (approval #4)
+  { label: "Daftar Sidang tugas akhir disetujui" }, // 9 (Approval Sidang)
   { label: "Sidang tugas akhir selesai" }, // 10
-  { label: "Revisi tugas akhir disetujui" }, // 11
+  { label: "Revisi tugas akhir disetujui" }, // 11 (Approval Revisi)
   { label: "Selesai" }, // 12
 ];
 
-// pasangan "hidden approval": beforeIndex = step sebelum disetujui, approvalIndex = step disetujui
+// UPDATED: Pasangan approval mencakup TA, Sidang, dan Revisi
 const APPROVAL_PAIRS = [
-  { beforeIndex: 0, approvalIndex: 1 }, // sebelum proposal TA disetujui
-  { beforeIndex: 2, approvalIndex: 3 }, // sebelum daftar sidang proposal TA disetujui
-  { beforeIndex: 6, approvalIndex: 7 }, // sebelum tugas akhir disetujui
-  { beforeIndex: 8, approvalIndex: 9 }, // sebelum daftar sidang tugas akhir disetujui
+  { beforeIndex: 0, approvalIndex: 1, type: "TA" }, // Proposal TA
+  { beforeIndex: 2, approvalIndex: 3, type: "Sidang" }, // Sidang Prop
+  { beforeIndex: 4, approvalIndex: 5, type: "Revisi" }, // Revisi Prop (NEW)
+  { beforeIndex: 6, approvalIndex: 7, type: "TA" }, // Tugas Akhir
+  { beforeIndex: 8, approvalIndex: 9, type: "Sidang" }, // Sidang TA
+  { beforeIndex: 10, approvalIndex: 11, type: "Revisi" }, // Revisi TA (NEW)
 ];
 
 // Helper: cari index step terakhir yang punya tanggal (dianggap sudah selesai)
@@ -109,8 +121,20 @@ const getCurrentStepIndex = (student: Student): number => {
 const hasHiddenApprovalState = (student: Student): boolean => {
   const dates = student.timelineDates || [];
   return APPROVAL_PAIRS.some(({ beforeIndex, approvalIndex }) => {
+    // Jika step 'before' sudah ada tanggal, tapi step 'approval' belum
     return !!dates[beforeIndex] && !dates[approvalIndex];
   });
+};
+
+// Helper: Mendapatkan tipe approval yang sedang pending (TA, Sidang, atau Revisi)
+const getPendingApprovalType = (
+  student: Student
+): "TA" | "Sidang" | "Revisi" | null => {
+  const dates = student.timelineDates || [];
+  const pair = APPROVAL_PAIRS.find(({ beforeIndex, approvalIndex }) => {
+    return !!dates[beforeIndex] && !dates[approvalIndex];
+  });
+  return pair ? (pair.type as "TA" | "Sidang" | "Revisi") : null;
 };
 
 // Progress bar berdasarkan posisi di timeline
@@ -125,42 +149,13 @@ const getTimelineProgress = (student: Student): number => {
 const getStatusFromTimeline = (student: Student): Student["status"] => {
   const idx = getCurrentStepIndex(student);
 
-  if (idx < 0) {
-    // baru daftar / belum mulai apa-apa → kita anggap fase proposal
-    return "Proposal";
-  }
-
-  // 0–1: pendaftaran & persetujuan proposal TA
-  if (idx >= 0 && idx <= 1) {
-    return "Proposal";
-  }
-
-  // 2–4: mendaftar, approval, dan sidang proposal TA selesai
-  if (idx >= 2 && idx <= 4) {
-    return "Sidang Proposal";
-  }
-
-  // 5: revisi sidang proposal disetujui
-  if (idx === 5) {
-    return "Revisi Proposal";
-  }
-
-  // 6–7: daftar TA & TA disetujui
-  if (idx >= 6 && idx <= 7) {
-    return "Tugas Akhir";
-  }
-
-  // 8–10: daftar, approval, dan sidang tugas akhir selesai
-  if (idx >= 8 && idx <= 10) {
-    return "Sidang Tugas Akhir";
-  }
-
-  // 11: revisi sidang tugas akhir disetujui
-  if (idx === 11) {
-    return "Revisi Tugas Akhir";
-  }
-
-  // 12+: selesai
+  if (idx < 0) return "Proposal";
+  if (idx >= 0 && idx <= 1) return "Proposal";
+  if (idx >= 2 && idx <= 4) return "Sidang Proposal";
+  if (idx === 5) return "Revisi Proposal";
+  if (idx >= 6 && idx <= 7) return "Tugas Akhir";
+  if (idx >= 8 && idx <= 10) return "Sidang Tugas Akhir";
+  if (idx === 11) return "Revisi Tugas Akhir";
   return "Selesai";
 };
 
@@ -168,7 +163,7 @@ const getStatusFromTimeline = (student: Student): Student["status"] => {
 const formatTimelineDate = (dateStr: string | null | undefined): string => {
   if (!dateStr) return "Belum selesai";
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr; // fallback kalau string bukan date valid
+  if (isNaN(d.getTime())) return dateStr;
   return d.toLocaleDateString("id-ID", {
     day: "2-digit",
     month: "short",
@@ -176,7 +171,6 @@ const formatTimelineDate = (dateStr: string | null | undefined): string => {
   });
 };
 
-// Format datetime untuk log bimbingan
 const formatDateTime = (dateTimeStr: string): string => {
   const d = new Date(dateTimeStr);
   if (isNaN(d.getTime())) return dateTimeStr;
@@ -213,7 +207,6 @@ const approveHiddenState = (student: Student): Student => {
   };
 };
 
-// Helper bimbingan
 const getPendingBimbinganCount = (student: Student): number => {
   if (!student.bimbinganLog) return 0;
   return student.bimbinganLog.filter((b) => b.status === "Menunggu").length;
@@ -226,27 +219,39 @@ const getApprovedBimbinganCount = (student: Student): number => {
 
 export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps) {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
-  const [selectedJenjang, setSelectedJenjang] = useState<"Semua" | "S1" | "S2" | "S3">("Semua");
+  const [selectedJenjang, setSelectedJenjang] = useState<
+    "Semua" | "S1" | "S2" | "S3"
+  >("Semua");
   const [selectedStatus, setSelectedStatus] = useState("Semua");
+  // FILTER BARU: Approval Only
+  const [approvalFilter, setApprovalFilter] = useState<
+    "Semua" | "Perlu Approval"
+  >("Semua");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
   // Modal Approve Bimbingan
-  const [selectedBimbinganStudent, setSelectedBimbinganStudent] = useState<Student | null>(null);
+  const [selectedBimbinganStudent, setSelectedBimbinganStudent] =
+    useState<Student | null>(null);
   const [showBimbinganModal, setShowBimbinganModal] = useState(false);
 
   // dari beranda
-  const [expandedAjuan, setExpandedAjuan] = useState(initialView === "ajuanTopik");
+  const [expandedAjuan, setExpandedAjuan] = useState(
+    initialView === "ajuanTopik"
+  );
   const [selectedTopics, setSelectedTopics] = useState<number[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState<TopicProposal | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<TopicProposal | null>(
+    null
+  );
   const [showTopicDetailModal, setShowTopicDetailModal] = useState(false);
   const [filterMode] = useState<"all" | "approval" | "ready">(
     initialView === "approval" ? "approval" : "all"
   );
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
 
-  // DATA MAHASISWA
+  // DATA MAHASISWA (UPDATED WITH RICH BIMBINGAN DATA)
   const [students, setStudents] = useState<Student[]>([
     {
       id: 1,
@@ -257,93 +262,59 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
       judulTA:
         "RANCANG BANGUN SISTEM MONITORING BIMBINGAN TUGAS AKHIR BERBASIS WEB",
       abstrak:
-        "Penelitian ini bertujuan untuk merancang dan membangun sistem monitoring bimbingan tugas akhir berbasis web guna memudahkan dosen dan mahasiswa dalam memantau progress bimbingan.",
+        "Penelitian ini bertujuan untuk merancang dan membangun sistem monitoring bimbingan tugas akhir.",
       lab: "Laboratorium Rekayasa Perangkat Lunak",
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Proposal",
       status: "Sidang Proposal",
-      progress: 60,
-      jumlahBimbingan: 8,
+      progress: 40,
+      jumlahBimbingan: 4,
       needsApproval: true,
       timelineDates: [
-        "2025-01-02", // 0
-        "2025-01-05", // 1
-        "2025-01-10", // 2
-        "2025-01-15", // 3
-        null, // 4
-        null, // 5
-        null, // 6
-        null, // 7
-        null, // 8
-        null, // 9
-        null, // 10
-        null, // 11
-        null, // 12
+        "2025-01-02",
+        "2025-01-05",
+        "2025-01-10",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
       ],
+      // DATA BIMBINGAN: 3 Approved, 1 Waiting
       bimbinganLog: [
         {
           id: 101,
           ke: 1,
-          beritaAcara: "Penjelasan aturan tugas akhir dan penentuan topik awal.",
-          waktu: "2024-12-10T09:00:00",
+          beritaAcara: "Diskusi awal penentuan topik dan judul.",
+          waktu: "2024-12-01T09:00:00",
           status: "Disetujui",
         },
         {
           id: 102,
           ke: 2,
-          beritaAcara: "Review rumusan masalah dan tujuan penelitian.",
-          waktu: "2024-12-20T13:30:00",
+          beritaAcara: "Review Bab 1 Latar Belakang Masalah.",
+          waktu: "2024-12-15T10:00:00",
           status: "Disetujui",
         },
         {
           id: 103,
           ke: 3,
-          beritaAcara: "Diskusi kerangka teori dan penyusunan BAB II.",
-          waktu: "2025-01-03T10:00:00",
+          beritaAcara: "Review Bab 2 Tinjauan Pustaka.",
+          waktu: "2024-12-28T13:00:00",
           status: "Disetujui",
         },
         {
           id: 104,
           ke: 4,
-          beritaAcara: "Pemeriksaan metodologi dan rancangan eksperimen.",
-          waktu: "2025-01-15T15:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 105,
-          ke: 5,
-          beritaAcara: "Evaluasi implementasi awal sistem.",
-          waktu: "2025-02-01T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 106,
-          ke: 6,
-          beritaAcara: "Finalisasi BAB IV dan interpretasi hasil.",
-          waktu: "2025-02-15T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 107,
-          ke: 7,
-          beritaAcara: "Persiapan materi presentasi sidang proposal.",
-          waktu: "2025-03-01T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 108,
-          ke: 8,
-          beritaAcara: "Simulasi tanya jawab sidang proposal.",
-          waktu: "2025-03-10T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 109,
-          ke: 9,
-          beritaAcara: "Pengajuan revisi dokumen setelah sidang.",
-          waktu: "2025-03-20T10:00:00",
-          status: "Menunggu",
+          beritaAcara: "Finalisasi Proposal sebelum sidang.",
+          waktu: "2025-01-11T09:00:00",
+          status: "Menunggu", // PENDING
         },
       ],
     },
@@ -355,72 +326,45 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
       jenjang: "S1",
       judulTA: "Aplikasi Mobile untuk Monitoring Kesehatan Lansia",
       abstrak:
-        "Aplikasi mobile yang dirancang untuk memudahkan monitoring kesehatan lansia dengan fitur pengingat minum obat, pencatatan tekanan darah, dan konsultasi online.",
+        "Aplikasi mobile yang dirancang untuk memudahkan monitoring kesehatan lansia.",
       lab: "Laboratorium Sistem Informasi",
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Proposal",
       status: "Proposal",
-      progress: 35,
-      jumlahBimbingan: 5,
-      needsApproval: false,
+      progress: 10,
+      jumlahBimbingan: 2,
+      needsApproval: true,
       timelineDates: [
-        "2025-01-03", // 0
-        null, // 1
-        null, // 2
-        null, // 3
-        null, // 4
-        null, // 5
-        null, // 6
-        null, // 7
-        null, // 8
-        null, // 9
-        null, // 10
-        null, // 11
-        null, // 12
+        "2025-01-03",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
       ],
+      // DATA BIMBINGAN: 1 Approved, 1 Waiting
       bimbinganLog: [
         {
           id: 201,
           ke: 1,
-          beritaAcara: "Diskusi kebutuhan fitur utama aplikasi.",
-          waktu: "2024-11-10T09:30:00",
+          beritaAcara: "Pengajuan judul dan diskusi fitur aplikasi.",
+          waktu: "2025-01-04T14:00:00",
           status: "Disetujui",
         },
         {
           id: 202,
           ke: 2,
-          beritaAcara: "Review user flow dan wireframe.",
-          waktu: "2024-11-20T09:30:00",
-          status: "Disetujui",
-        },
-        {
-          id: 203,
-          ke: 3,
-          beritaAcara: "Penyusunan BAB I dan BAB II.",
-          waktu: "2024-12-02T14:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 204,
-          ke: 4,
-          beritaAcara: "Diskusi rancangan arsitektur sistem.",
-          waktu: "2024-12-15T14:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 205,
-          ke: 5,
-          beritaAcara: "Pemeriksaan draft proposal lengkap.",
-          waktu: "2024-12-28T14:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 206,
-          ke: 6,
-          beritaAcara: "Pengajuan revisi kecil sebelum daftar sidang.",
-          waktu: "2025-01-05T09:00:00",
-          status: "Menunggu",
+          beritaAcara: "Penyusunan kerangka pemikiran Proposal.",
+          waktu: "2025-01-12T08:30:00",
+          status: "Menunggu", // PENDING
         },
       ],
     },
@@ -432,310 +376,133 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
       jenjang: "S2",
       judulTA: "Analisis Sentimen Media Sosial Menggunakan Deep Learning",
       abstrak:
-        "Penelitian ini menggunakan teknik deep learning untuk menganalisis sentimen pada media sosial dengan akurasi tinggi menggunakan arsitektur LSTM dan BERT.",
+        "Penelitian ini menggunakan teknik deep learning untuk menganalisis sentimen.",
       lab: "Laboratorium Kecerdasan Buatan",
-      pembimbing1: "Pembimbing 1 (Anda)",
-      pembimbing2: "Pembimbing 2 (Rekan)",
-      tahap: "Tugas Akhir",
-      status: "Sidang Tugas Akhir",
-      progress: 75,
-      jumlahBimbingan: 12,
-      needsApproval: true,
-      timelineDates: [
-        "2024-09-01", // 0
-        "2024-09-10", // 1
-        "2024-09-20", // 2
-        "2024-09-25", // 3
-        "2024-10-01", // 4
-        "2024-10-05", // 5
-        "2024-10-15", // 6
-        "2024-10-25", // 7
-        "2024-11-01", // 8
-        null, // 9
-        null, // 10
-        null, // 11
-        null, // 12
-      ],
-      bimbinganLog: [
-        {
-          id: 301,
-          ke: 1,
-          beritaAcara: "Penentuan dataset dan platform pengumpulan data.",
-          waktu: "2024-07-10T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 302,
-          ke: 2,
-          beritaAcara: "Review literatur terkait model LSTM dan BERT.",
-          waktu: "2024-07-20T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 303,
-          ke: 3,
-          beritaAcara: "Perancangan pipeline preprocessing teks.",
-          waktu: "2024-08-01T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 304,
-          ke: 4,
-          beritaAcara: "Diskusi hasil eksperimen awal.",
-          waktu: "2024-08-15T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 305,
-          ke: 5,
-          beritaAcara: "Analisis perbandingan performa model.",
-          waktu: "2024-09-01T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 306,
-          ke: 6,
-          beritaAcara: "Penyusunan BAB IV dan pembahasan.",
-          waktu: "2024-09-20T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 307,
-          ke: 7,
-          beritaAcara: "Persiapan naskah sidang tugas akhir.",
-          waktu: "2024-10-05T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 308,
-          ke: 8,
-          beritaAcara: "Simulasi sidang dan tanya jawab.",
-          waktu: "2024-10-15T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 309,
-          ke: 9,
-          beritaAcara: "Pengumpulan berkas administrasi sidang.",
-          waktu: "2024-10-25T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 310,
-          ke: 10,
-          beritaAcara: "Diskusi hasil sidang dan tindak lanjut.",
-          waktu: "2024-11-05T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 311,
-          ke: 11,
-          beritaAcara: "Review revisi naskah final.",
-          waktu: "2024-11-20T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 312,
-          ke: 12,
-          beritaAcara: "Konfirmasi kelayakan naskah untuk unggah Repositori.",
-          waktu: "2024-12-01T10:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 313,
-          ke: 13,
-          beritaAcara: "Permohonan tanda tangan lembar pengesahan.",
-          waktu: "2024-12-10T10:00:00",
-          status: "Menunggu",
-        },
-      ],
-    },
-    {
-      id: 4,
-      nrp: "5025201020",
-      nama: "Dewi Kartika Sari",
-      angkatan: "2020",
-      jenjang: "S1",
-      judulTA: "Implementasi Machine Learning untuk Deteksi Penyakit Tanaman",
-      abstrak:
-        "Sistem deteksi penyakit tanaman menggunakan convolutional neural network (CNN) untuk membantu petani dalam diagnosis dini penyakit tanaman.",
-      lab: "Laboratorium Kecerdasan Buatan",
-      pembimbing1: "Pembimbing 1 (Anda)",
-      pembimbing2: "Pembimbing 2 (Rekan)",
-      tahap: "Proposal",
-      status: "Revisi Proposal",
-      progress: 90,
-      jumlahBimbingan: 6,
-      needsApproval: false,
-      timelineDates: [
-        "2024-11-01", // 0
-        "2024-11-05", // 1
-        "2024-11-10", // 2
-        "2024-11-15", // 3
-        "2024-11-20", // 4
-        "2024-11-25", // 5
-        null, // 6
-        null, // 7
-        null, // 8
-        null, // 9
-        null, // 10
-        null, // 11
-        null, // 12
-      ],
-      bimbinganLog: [
-        {
-          id: 401,
-          ke: 1,
-          beritaAcara: "Penentuan jenis penyakit tanaman target.",
-          waktu: "2024-10-01T09:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 402,
-          ke: 2,
-          beritaAcara: "Pengumpulan dataset citra daun.",
-          waktu: "2024-10-10T09:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 403,
-          ke: 3,
-          beritaAcara: "Perancangan arsitektur CNN.",
-          waktu: "2024-10-20T09:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 404,
-          ke: 4,
-          beritaAcara: "Eksperimen awal dan tuning hyperparameter.",
-          waktu: "2024-11-01T09:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 405,
-          ke: 5,
-          beritaAcara: "Analisis akurasi model dan confusion matrix.",
-          waktu: "2024-11-15T09:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 406,
-          ke: 6,
-          beritaAcara: "Penyusunan BAB III dan BAB IV.",
-          waktu: "2024-11-25T09:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 407,
-          ke: 7,
-          beritaAcara: "Revisi minor penulisan dan layout gambar.",
-          waktu: "2024-12-05T09:00:00",
-          status: "Menunggu",
-        },
-      ],
-    },
-    {
-      id: 5,
-      nrp: "6025201008",
-      nama: "Rini Susanti",
-      angkatan: "2020",
-      jenjang: "S2",
-      judulTA: "Optimasi Algoritma Pencarian dengan Genetic Algorithm",
-      abstrak:
-        "Penelitian optimasi algoritma pencarian menggunakan genetic algorithm untuk meningkatkan efisiensi pencarian pada dataset besar.",
-      lab: "Laboratorium Sistem Informasi",
       pembimbing1: "Pembimbing 1 (Anda)",
       pembimbing2: "Pembimbing 2 (Rekan)",
       tahap: "Tugas Akhir",
       status: "Revisi Tugas Akhir",
-      progress: 85,
-      jumlahBimbingan: 9,
-      needsApproval: false,
+      progress: 90,
+      jumlahBimbingan: 10,
+      needsApproval: true,
       timelineDates: [
-        "2024-08-01", // 0
-        "2024-08-05", // 1
-        "2024-08-10", // 2
-        "2024-08-15", // 3
-        "2024-08-20", // 4
-        "2024-08-25", // 5
-        "2024-09-01", // 6
-        "2024-09-10", // 7
-        "2024-09-20", // 8
-        "2024-09-25", // 9
-        "2024-10-01", // 10
-        "2024-10-05", // 11
-        null, // 12
+        "2024-09-01",
+        "2024-09-10",
+        "2024-09-20",
+        "2024-09-25",
+        "2024-10-01",
+        "2024-10-05",
+        "2024-10-15",
+        "2024-10-25",
+        "2024-11-01",
+        "2024-11-05",
+        "2024-11-10",
+        null,
+        null,
       ],
+      // DATA BIMBINGAN: All Approved (Revisi Approval needed in timeline, not bimbingan log per se, but added one pending log for flavor)
+      bimbinganLog: [
+        { id: 301, ke: 1, beritaAcara: "Bimbingan 1", waktu: "2024-09-02T10:00:00", status: "Disetujui" },
+        { id: 302, ke: 2, beritaAcara: "Bimbingan 2", waktu: "2024-09-15T10:00:00", status: "Disetujui" },
+        { id: 303, ke: 3, beritaAcara: "Bimbingan 3", waktu: "2024-10-01T10:00:00", status: "Disetujui" },
+        { id: 304, ke: 4, beritaAcara: "Bimbingan 4", waktu: "2024-10-15T10:00:00", status: "Disetujui" },
+        { id: 305, ke: 5, beritaAcara: "Bimbingan 5", waktu: "2024-11-01T10:00:00", status: "Disetujui" },
+        { id: 306, ke: 6, beritaAcara: "Bimbingan 6", waktu: "2024-11-15T10:00:00", status: "Disetujui" },
+        { id: 307, ke: 7, beritaAcara: "Bimbingan 7", waktu: "2024-11-20T10:00:00", status: "Disetujui" },
+        { id: 308, ke: 8, beritaAcara: "Bimbingan 8", waktu: "2024-12-01T10:00:00", status: "Disetujui" },
+        { id: 309, ke: 9, beritaAcara: "Bimbingan 9", waktu: "2024-12-10T10:00:00", status: "Disetujui" },
+        {
+          id: 310,
+          ke: 10,
+          beritaAcara: "Laporan Revisi Final Pasca Sidang.",
+          waktu: "2024-12-28T10:00:00",
+          status: "Menunggu", // PENDING
+        },
+      ],
+    },
+    // SCENARIO BARU: GAGAL TIMELINE
+    {
+      id: 6,
+      nrp: "5025201099",
+      nama: "Fajar Santoso (Gagal & Ulang)",
+      angkatan: "2020",
+      jenjang: "S1",
+      judulTA: "Implementasi Blockchain pada Sistem Supply Chain Management",
+      abstrak: "Penerapan smart contract untuk transparansi data logistik.",
+      lab: "Laboratorium Komputasi Berbasis Jaringan",
+      pembimbing1: "Pembimbing 1 (Anda)",
+      pembimbing2: "Pembimbing 2 (Rekan)",
+      tahap: "Proposal",
+      status: "Sidang Proposal",
+      progress: 35,
+      jumlahBimbingan: 6,
+      needsApproval: false,
+      failedHistory: [
+        {
+          stepIndex: 4, // Gagal saat Sidang Proposal
+          date: "2024-12-20",
+          note: "Tidak lulus sidang proposal, harus mengulang.",
+        },
+      ],
+      timelineDates: [
+        "2024-11-01",
+        "2024-11-05",
+        "2024-11-10",
+        "2024-11-15",
+        "2025-01-12",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+      ],
+      // DATA BIMBINGAN: Mix of old (before fail) and new (after fail)
       bimbinganLog: [
         {
-          id: 501,
+          id: 601,
           ke: 1,
-          beritaAcara: "Diskusi formulasi masalah optimasi.",
-          waktu: "2024-06-10T14:00:00",
+          beritaAcara: "Penentuan Topik (Lama).",
+          waktu: "2024-11-02T10:00:00",
           status: "Disetujui",
         },
         {
-          id: 502,
+          id: 602,
           ke: 2,
-          beritaAcara: "Penentuan fungsi fitness dan constraint.",
-          waktu: "2024-06-20T14:00:00",
+          beritaAcara: "Bab 1 & 2 (Lama).",
+          waktu: "2024-11-20T10:00:00",
           status: "Disetujui",
         },
         {
-          id: 503,
+          id: 603,
           ke: 3,
-          beritaAcara: "Desain skema genetic algorithm.",
-          waktu: "2024-07-01T14:00:00",
+          beritaAcara: "Persiapan Sidang (Gagal).",
+          waktu: "2024-12-15T10:00:00",
           status: "Disetujui",
         },
+        // --- GAGAL SIDANG 20 DESEMBER ---
         {
-          id: 504,
+          id: 604,
           ke: 4,
-          beritaAcara: "Eksperimen awal dan analisis hasil.",
-          waktu: "2024-07-15T14:00:00",
+          beritaAcara: "Evaluasi kegagalan sidang dan perbaikan mayor.",
+          waktu: "2024-12-22T10:00:00",
           status: "Disetujui",
         },
         {
-          id: 505,
+          id: 605,
           ke: 5,
-          beritaAcara: "Perbandingan dengan algoritma baseline.",
-          waktu: "2024-08-01T14:00:00",
+          beritaAcara: "Penyusunan ulang Bab 3 & 4.",
+          waktu: "2025-01-05T10:00:00",
           status: "Disetujui",
         },
         {
-          id: 506,
+          id: 606,
           ke: 6,
-          beritaAcara: "Review BAB III dan BAB IV.",
-          waktu: "2024-08-20T14:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 507,
-          ke: 7,
-          beritaAcara: "Revisi hasil eksperimen tambahan.",
-          waktu: "2024-09-05T14:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 508,
-          ke: 8,
-          beritaAcara: "Finalisasi naskah sebelum sidang.",
-          waktu: "2024-09-20T14:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 509,
-          ke: 9,
-          beritaAcara: "Perbaikan minor pasca sidang.",
-          waktu: "2024-10-10T14:00:00",
-          status: "Disetujui",
-        },
-        {
-          id: 510,
-          ke: 10,
-          beritaAcara: "Pengumpulan berkas kelulusan.",
-          waktu: "2024-10-25T14:00:00",
-          status: "Menunggu",
+          beritaAcara: "Cek kesiapan sidang ulang.",
+          waktu: "2025-01-10T10:00:00",
+          status: "Menunggu", // PENDING
         },
       ],
     },
@@ -750,7 +517,7 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
       angkatan: "2020",
       judul: "Sistem Informasi Perpustakaan Digital Berbasis Cloud",
       abstrak:
-        "Sistem perpustakaan digital yang menggunakan teknologi cloud computing untuk penyimpanan dan akses buku digital dengan fitur pencarian cerdas.",
+        "Sistem perpustakaan digital yang menggunakan teknologi cloud computing.",
       tanggalAjuan: "2024-12-01",
     },
     {
@@ -758,26 +525,16 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
       nama: "Farah Nabila",
       nrp: "5025201031",
       angkatan: "2020",
-      judul:
-        "Aplikasi E-Learning dengan Gamifikasi untuk Meningkatkan Motivasi Belajar",
-      abstrak:
-        "Platform e-learning yang menerapkan konsep gamifikasi seperti poin, badge, dan leaderboard untuk meningkatkan motivasi dan engagement siswa.",
+      judul: "Aplikasi E-Learning dengan Gamifikasi",
+      abstrak: "Platform e-learning yang menerapkan konsep gamifikasi.",
       tanggalAjuan: "2024-12-02",
-    },
-    {
-      id: 3,
-      nama: "Arif Budiman",
-      nrp: "5025201032",
-      angkatan: "2020",
-      judul: "Chatbot Customer Service Menggunakan Natural Language Processing",
-      abstrak:
-        "Chatbot cerdas yang menggunakan NLP dan machine learning untuk memberikan layanan customer service otomatis dengan tingkat akurasi tinggi.",
-      tanggalAjuan: "2024-12-03",
     },
   ]);
 
-  // buat student baru dari ajuan topik
-  const createStudentFromTopic = (topic: TopicProposal, id: number): Student => {
+  const createStudentFromTopic = (
+    topic: TopicProposal,
+    id: number
+  ): Student => {
     const len = TIMELINE_STEPS.length;
     return {
       id,
@@ -795,7 +552,6 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
       progress: 0,
       jumlahBimbingan: 0,
       needsApproval: false,
-      // default: baru daftar proposal TA (step 0)
       timelineDates: [
         new Date().toISOString().slice(0, 10),
         ...new Array(len - 1).fill(null),
@@ -804,37 +560,47 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
     };
   };
 
-  // FILTER MAHASISWA
+  // --- LOGIC FILTERING UPDATED ---
   let filteredStudents = students.filter((student) => {
     const derivedStatus = getStatusFromTimeline(student);
+    const pendingBimbingan = getPendingBimbinganCount(student);
+    const needsHiddenApproval = hasHiddenApprovalState(student);
 
     const matchesJenjang =
       selectedJenjang === "Semua" || student.jenjang === selectedJenjang;
     const matchesStatus =
-      selectedStatus === "Semua" ||
-      derivedStatus === (selectedStatus as Student["status"]);
+      selectedStatus === "Semua" || derivedStatus === selectedStatus;
     const matchesSearch =
       student.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.nrp.includes(searchQuery) ||
       student.judulTA.toLowerCase().includes(searchQuery.toLowerCase());
 
-    let matchesFilter = true;
-    if (filterMode === "approval") {
-      matchesFilter = hasHiddenApprovalState(student);
-    } else if (filterMode === "ready") {
-      // contoh ready = fase sidang tugas akhir
-      matchesFilter = derivedStatus === "Sidang Tugas Akhir";
+    // Filter baru: Perlu Approval
+    let matchesApproval = true;
+    if (approvalFilter === "Perlu Approval") {
+      matchesApproval = needsHiddenApproval || pendingBimbingan > 0;
     }
 
-    return matchesJenjang && matchesStatus && matchesSearch && matchesFilter;
+    // Filter legacy mode (opsional)
+    let matchesLegacyMode = true;
+    if (filterMode === "approval") {
+      matchesLegacyMode = needsHiddenApproval;
+    }
+
+    return (
+      matchesJenjang &&
+      matchesStatus &&
+      matchesSearch &&
+      matchesApproval &&
+      matchesLegacyMode
+    );
   });
 
   const getTahapColor = (tahap: Student["tahap"]) => {
-    if (tahap === "Proposal") {
+    if (tahap === "Proposal")
       return "bg-blue-50 border-blue-200 text-blue-700";
-    } else if (tahap === "Tugas Akhir") {
+    if (tahap === "Tugas Akhir")
       return "bg-green-50 border-green-200 text-green-700";
-    }
     return "bg-gray-50 border-gray-200 text-gray-700";
   };
 
@@ -882,79 +648,51 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
     setShowDetailModal(true);
   };
 
-  // Open modal Approve Bimbingan
   const handleOpenBimbinganModal = (student: Student) => {
     setSelectedBimbinganStudent(student);
     setShowBimbinganModal(true);
   };
 
-  // BATCH APPROVAL USULAN TOPIK
+  // --- APPROVAL LOGIC ---
   const handleApproveTopics = () => {
     if (selectedTopics.length === 0) {
       toast.error("Pilih minimal satu topik untuk disetujui");
       return;
     }
-
     const topicsToApprove = topicProposals.filter((t) =>
       selectedTopics.includes(t.id)
     );
-
-    if (topicsToApprove.length === 0) {
-      toast.error("Tidak ada topik yang ditemukan untuk disetujui");
-      return;
-    }
-
     const baseId = Date.now();
     const newStudentsFromTopics = topicsToApprove.map((topic, index) =>
       createStudentFromTopic(topic, baseId + index)
     );
-
-    // baru disetujui → taruh di paling atas
     setStudents((prev) => [...newStudentsFromTopics, ...prev]);
     setTopicProposals((prev) =>
       prev.filter((t) => !selectedTopics.includes(t.id))
     );
-
-    toast.success(
-      `${selectedTopics.length} topik berhasil disetujui dan ditambahkan ke daftar bimbingan (Proposal)`
-    );
+    toast.success(`${selectedTopics.length} topik berhasil disetujui`);
     setSelectedTopics([]);
   };
 
-  // SINGLE APPROVAL USULAN TOPIK
   const handleApproveSingle = (id: number) => {
     const topic = topicProposals.find((t) => t.id === id);
-    if (!topic) {
-      toast.error("Topik tidak ditemukan");
-      return;
-    }
-
+    if (!topic) return;
     const newId = Date.now();
     const newStudent = createStudentFromTopic(topic, newId);
-
-    // baru disetujui → taruh di paling atas
     setStudents((prev) => [newStudent, ...prev]);
     setTopicProposals((prev) => prev.filter((t) => t.id !== id));
-
-    toast.success(
-      "Topik berhasil disetujui dan ditambahkan ke daftar bimbingan (Proposal)"
-    );
+    toast.success("Topik berhasil disetujui");
   };
 
   const toggleSelectTopic = (id: number) => {
-    if (selectedTopics.includes(id)) {
+    if (selectedTopics.includes(id))
       setSelectedTopics(selectedTopics.filter((t) => t !== id));
-    } else {
-      setSelectedTopics([...selectedTopics, id]);
-    }
+    else setSelectedTopics([...selectedTopics, id]);
   };
 
   const toggleSelectAll = () => {
-    if (selectedTopics.length === topicProposals.length) {
-      setSelectedTopics([]);
-    } else {
-      setSelectedTopics(topicProposals.map((t) => t.id));
-    }
+    if (selectedTopics.length === topicProposals.length) setSelectedTopics([]);
+    else setSelectedTopics(topicProposals.map((t) => t.id));
   };
 
   const handleViewTopicDetail = (topic: TopicProposal) => {
@@ -963,57 +701,42 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
   };
 
   const handleSelectStudent = (id: number) => {
-    if (selectedStudents.includes(id)) {
+    if (selectedStudents.includes(id))
       setSelectedStudents(selectedStudents.filter((s) => s !== id));
-    } else {
-      setSelectedStudents([...selectedStudents, id]);
-    }
+    else setSelectedStudents([...selectedStudents, id]);
   };
 
   const handleSelectAllStudents = () => {
-    if (selectedStudents.length === filteredStudents.length) {
+    if (selectedStudents.length === filteredStudents.length)
       setSelectedStudents([]);
-    } else {
-      setSelectedStudents(filteredStudents.map((s) => s.id));
-    }
+    else setSelectedStudents(filteredStudents.map((s) => s.id));
   };
 
-  // BATCH APPROVAL HIDDEN STATE (PERLU APPROVAL)
   const handleBatchApproval = () => {
     if (selectedStudents.length === 0) {
-      toast.error("Pilih minimal satu mahasiswa untuk disetujui");
+      toast.error("Pilih minimal satu mahasiswa");
       return;
     }
-
     const approvedCount = selectedStudents.length;
-
     setStudents((prev) => {
       const selected = prev.filter((s) => selectedStudents.includes(s.id));
       const others = prev.filter((s) => !selectedStudents.includes(s.id));
-
       const approvedUpdated = selected.map((s) => approveHiddenState(s));
-
-      // yang baru di-approve naik ke paling atas
       return [...approvedUpdated, ...others];
     });
-
     setSelectedStudents([]);
-    toast.success(
-      `${approvedCount} mahasiswa berhasil disetujui dan dipindahkan ke tahap selanjutnya`
-    );
+    toast.success(`${approvedCount} mahasiswa berhasil disetujui`);
   };
 
-  // SINGLE APPROVAL DARI MODAL DETAIL (timeline)
+  // SINGLE APPROVAL DARI MODAL (UPDATED LOGIC)
   const handleApproveStudent = (studentId: number) => {
     let updatedStudent: Student | null = null;
-
     setStudents((prev) => {
       const updatedList: Student[] = [];
       prev.forEach((s) => {
         if (s.id === studentId) {
           const updated = approveHiddenState(s);
           updatedStudent = updated;
-          // push duluan supaya ke paling atas
           updatedList.unshift(updated);
         } else {
           updatedList.push(s);
@@ -1021,40 +744,39 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
       });
       return updatedList;
     });
-
-    if (updatedStudent) {
-      setSelectedStudent(updatedStudent);
-    }
-
+    if (updatedStudent) setSelectedStudent(updatedStudent);
     setSelectedStudents((prev) => prev.filter((id) => id !== studentId));
-
-    toast.success(
-      "Mahasiswa berhasil disetujui dan timeline dilanjutkan ke step berikutnya"
-    );
+    toast.success("Status mahasiswa berhasil diperbarui ke tahap selanjutnya");
   };
 
-  // APPROVAL BIMBINGAN: SINGLE
-  const handleApproveSingleBimbingan = (studentId: number, entryId: number) => {
+  const handleApproveSingleBimbingan = (
+    studentId: number,
+    entryId: number
+  ) => {
     setStudents((prev) =>
       prev.map((s) => {
         if (s.id !== studentId || !s.bimbinganLog) return s;
         const updatedLog = s.bimbinganLog.map((b) =>
-          b.id === entryId ? { ...b, status: "Disetujui" } : b
+          b.id === entryId ? { ...b, status: "Disetujui" as const } : b
         );
         const approvedCount = updatedLog.filter(
           (b) => b.status === "Disetujui"
         ).length;
-        return { ...s, bimbinganLog: updatedLog, jumlahBimbingan: approvedCount };
+        return {
+          ...s,
+          bimbinganLog: updatedLog,
+          jumlahBimbingan: approvedCount,
+        };
       })
     );
-
+    // Update local state di modal bimbingan
     if (
       selectedBimbinganStudent &&
       selectedBimbinganStudent.id === studentId &&
       selectedBimbinganStudent.bimbinganLog
     ) {
       const updatedLog = selectedBimbinganStudent.bimbinganLog.map((b) =>
-        b.id === entryId ? { ...b, status: "Disetujui" } : b
+        b.id === entryId ? { ...b, status: "Disetujui" as const } : b
       );
       const approvedCount = updatedLog.filter(
         (b) => b.status === "Disetujui"
@@ -1064,23 +786,27 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
         bimbinganLog: updatedLog,
         jumlahBimbingan: approvedCount,
       });
+      toast.success("Bimbingan disetujui");
     }
-
-    toast.success("Ajuan bimbingan berhasil disetujui");
   };
 
-  // APPROVAL BIMBINGAN: ALL
   const handleApproveAllBimbingan = (studentId: number) => {
     setStudents((prev) =>
       prev.map((s) => {
         if (s.id !== studentId || !s.bimbinganLog) return s;
         const updatedLog = s.bimbinganLog.map((b) =>
-          b.status === "Menunggu" ? { ...b, status: "Disetujui" } : b
+          b.status === "Menunggu"
+            ? { ...b, status: "Disetujui" as const }
+            : b
         );
         const approvedCount = updatedLog.filter(
           (b) => b.status === "Disetujui"
         ).length;
-        return { ...s, bimbinganLog: updatedLog, jumlahBimbingan: approvedCount };
+        return {
+          ...s,
+          bimbinganLog: updatedLog,
+          jumlahBimbingan: approvedCount,
+        };
       })
     );
 
@@ -1090,7 +816,7 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
       selectedBimbinganStudent.bimbinganLog
     ) {
       const updatedLog = selectedBimbinganStudent.bimbinganLog.map((b) =>
-        b.status === "Menunggu" ? { ...b, status: "Disetujui" } : b
+        b.status === "Menunggu" ? { ...b, status: "Disetujui" as const } : b
       );
       const approvedCount = updatedLog.filter(
         (b) => b.status === "Disetujui"
@@ -1100,12 +826,10 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
         bimbinganLog: updatedLog,
         jumlahBimbingan: approvedCount,
       });
+      toast.success("Semua bimbingan disetujui");
     }
-
-    toast.success("Semua ajuan bimbingan berhasil disetujui");
   };
 
-  // JUMLAH PER JENJANG
   const s1Count = students.filter((s) => s.jenjang === "S1").length;
   const s2Count = students.filter((s) => s.jenjang === "S2").length;
   const s3Count = students.filter((s) => s.jenjang === "S3").length;
@@ -1213,7 +937,6 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                             Centang Semua
                           </span>
                         </div>
-
                         <div className="space-y-3">
                           {topicProposals.map((topic) => (
                             <div
@@ -1284,9 +1007,8 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
           </div>
         </div>
 
-        {/* Statistics cards: Mahasiswa S1 / S2 / S3 */}
+        {/* Statistics cards */}
         <div className="grid md:grid-cols-3 gap-4 mb-6">
-          {/* S1 */}
           <div
             onClick={() =>
               setSelectedJenjang((prev) => (prev === "S1" ? "Semua" : "S1"))
@@ -1311,8 +1033,6 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
               </div>
             </div>
           </div>
-
-          {/* S2 */}
           <div
             onClick={() =>
               setSelectedJenjang((prev) => (prev === "S2" ? "Semua" : "S2"))
@@ -1337,8 +1057,6 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
               </div>
             </div>
           </div>
-
-          {/* S3 */}
           <div
             onClick={() =>
               setSelectedJenjang((prev) => (prev === "S3" ? "Semua" : "S3"))
@@ -1365,8 +1083,8 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
           </div>
         </div>
 
-        {/* Batch Approval Hidden State */}
-        {filterMode === "approval" && filteredStudents.length > 0 && (
+        {/* Batch Approval UI (Muncul jika filter approval aktif) */}
+        {approvalFilter === "Perlu Approval" && filteredStudents.length > 0 && (
           <div className="mb-6 flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <input
@@ -1376,7 +1094,8 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                 className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
               />
               <span className="text-sm text-gray-700 font-[Roboto]">
-                Centang Semua ({filteredStudents.length} mahasiswa)
+                Centang Semua ({filteredStudents.length} mahasiswa perlu
+                approval)
               </span>
             </div>
             {selectedStudents.length > 0 && (
@@ -1393,7 +1112,7 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
 
         {/* Filters */}
         <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -1419,6 +1138,28 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
               <option value="Revisi Tugas Akhir">Revisi Tugas Akhir</option>
               <option value="Selesai">Selesai</option>
             </select>
+
+            {/* NEW: Filter Approval */}
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <Filter className="w-4 h-4 text-gray-400" />
+              </div>
+              <select
+                value={approvalFilter}
+                onChange={(e) =>
+                  setApprovalFilter(
+                    e.target.value as "Semua" | "Perlu Approval"
+                  )
+                }
+                className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-[Roboto] text-sm appearance-none bg-white"
+              >
+                <option value="Semua">Semua Mahasiswa</option>
+                <option value="Perlu Approval">Perlu Approval (Pending)</option>
+              </select>
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1437,7 +1178,7 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                 className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start gap-4">
-                  {filterMode === "approval" && (
+                  {approvalFilter === "Perlu Approval" && (
                     <input
                       type="checkbox"
                       checked={selectedStudents.includes(student.id)}
@@ -1465,13 +1206,13 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                             {derivedStatus}
                           </span>
                           {showHiddenApproval && (
-                            <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-[Roboto] font-semibold">
-                              Perlu approval
+                            <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-[Roboto] font-semibold flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" /> Perlu Approval
                             </span>
                           )}
                           {pendingBimbingan > 0 && (
-                            <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-[Roboto] font-semibold">
-                              {pendingBimbingan} ajuan bimbingan
+                            <span className="bg-orange-500 text-white text-xs px-2.5 py-1 rounded-full font-[Roboto] font-semibold">
+                              {pendingBimbingan} bimbingan baru
                             </span>
                           )}
                         </div>
@@ -1541,7 +1282,6 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
               </div>
             );
           })}
-
           {filteredStudents.length === 0 && (
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
               <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -1605,9 +1345,10 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
               <div className="p-6">
                 {(() => {
                   const derivedStatus = getStatusFromTimeline(selectedStudent);
-                  const showHiddenApproval = hasHiddenApprovalState(
-                    selectedStudent
-                  );
+                  const showHiddenApproval =
+                    hasHiddenApprovalState(selectedStudent);
+                  const approvalType = getPendingApprovalType(selectedStudent);
+
                   return (
                     <div className="mb-6 flex items-center gap-3">
                       <span
@@ -1625,37 +1366,40 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                         {getStatusIcon(derivedStatus)}
                         {derivedStatus}
                       </span>
-                      {showHiddenApproval && (
+                      {showHiddenApproval && approvalType && (
                         <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-[Roboto] font-semibold">
-                          Perlu approval
+                          Menunggu Approval {approvalType}
                         </span>
                       )}
                     </div>
                   );
                 })()}
 
-                {/* Info TA */}
+                {/* Info TA (Dengan Tombol Approve TA) */}
                 <div className="mb-6">
                   <h3 className="text-gray-800 font-[Poppins] mb-3 flex items-center gap-2">
                     <FileText className="w-5 h-5" />
                     Informasi Tugas Akhir
                   </h3>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
-                    <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
-                        Nama dan NRP
-                      </p>
-                      <p className="text-sm text-gray-800 font-[Roboto]">
-                        {selectedStudent.nama} - {selectedStudent.nrp}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
-                        Judul
-                      </p>
-                      <p className="text-sm text-gray-800 font-[Roboto]">
-                        {selectedStudent.judulTA}
-                      </p>
+                    {/* Content Info TA */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                          Judul
+                        </p>
+                        <p className="text-sm text-gray-800 font-[Roboto]">
+                          {selectedStudent.judulTA}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 font-[Roboto] mb-1">
+                          Lab
+                        </p>
+                        <p className="text-sm text-gray-800 font-[Roboto]">
+                          {selectedStudent.lab}
+                        </p>
+                      </div>
                     </div>
                     <div>
                       <p className="text-xs text-gray-600 font-[Roboto] mb-1">
@@ -1665,34 +1409,40 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                         {selectedStudent.abstrak}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
-                        Lab
-                      </p>
-                      <p className="text-sm text-gray-800 font-[Roboto]">
-                        {selectedStudent.lab}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
-                        Pembimbing 1
-                      </p>
-                      <p className="text-sm text-gray-800 font-[Roboto]">
-                        {selectedStudent.pembimbing1}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
-                        Pembimbing 2
-                      </p>
-                      <p className="text-sm text-gray-800 font-[Roboto]">
-                        {selectedStudent.pembimbing2}
-                      </p>
-                    </div>
+
+                    {/* APPROVAL SECTION: TA */}
+                    {hasHiddenApprovalState(selectedStudent) &&
+                      getPendingApprovalType(selectedStudent) === "TA" && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="bg-white border border-blue-200 rounded p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-blue-50 rounded-full text-blue-600">
+                                <FileCheck className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-800 font-[Poppins]">
+                                  Persetujuan Dokumen TA
+                                </p>
+                                <p className="text-xs text-gray-500 font-[Roboto]">
+                                  Mahasiswa mengajukan dokumen untuk disetujui.
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() =>
+                                handleApproveStudent(selectedStudent.id)
+                              }
+                              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-[Roboto] flex items-center gap-1 transition-colors"
+                            >
+                              <Check className="w-4 h-4" /> Setujui TA
+                            </button>
+                          </div>
+                        </div>
+                      )}
                   </div>
                 </div>
 
-                {/* Timeline vertikal 13 langkah + timestamp */}
+                {/* Timeline vertikal 13 langkah + timestamp + failed history */}
                 <div className="mb-6">
                   <h3 className="text-gray-800 font-[Poppins] mb-3 flex items-center gap-2">
                     <Calendar className="w-5 h-5" />
@@ -1701,83 +1451,96 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                     <div className="space-y-4">
                       {TIMELINE_STEPS.map((step, idx) => {
-                        const currentIndex = getCurrentStepIndex(
-                          selectedStudent
-                        );
+                        const currentIndex =
+                          getCurrentStepIndex(selectedStudent);
                         const isActive = currentIndex >= idx;
                         const isNextActive = currentIndex >= idx + 1;
                         const isLast = idx === TIMELINE_STEPS.length - 1;
-
                         const stepDate =
                           selectedStudent.timelineDates &&
                           selectedStudent.timelineDates[idx];
 
+                        // Check failed history for this step
+                        const failedEntry =
+                          selectedStudent.failedHistory?.find(
+                            (f) => f.stepIndex === idx
+                          );
+
                         return (
-                          <div
-                            key={step.label}
-                            className="flex items-start gap-3"
-                          >
-                            <div className="flex flex-col items-center">
-                              <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
-                                  isActive
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-300 text-gray-600"
-                                }`}
-                              >
-                                {idx + 1}
+                          <div key={step.label} className="relative">
+                            {/* RENDER FAILED HISTORY IF EXISTS */}
+                            {failedEntry && (
+                              <div className="flex items-start gap-3 mb-4 opacity-70 grayscale-[0.5]">
+                                <div className="flex flex-col items-center">
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-red-100 text-red-600 border border-red-200">
+                                    <X className="w-4 h-4" />
+                                  </div>
+                                  <div className="w-px flex-1 mt-1 bg-red-300 min-h-[20px]" />
+                                </div>
+                                <div className="pt-1">
+                                  <p className="text-xs font-[Roboto] text-red-700 font-semibold line-through">
+                                    {step.label} (Gagal)
+                                  </p>
+                                  <p className="text-[10px] text-red-500 font-[Roboto] mt-1">
+                                    {formatTimelineDate(failedEntry.date)} •{" "}
+                                    {failedEntry.note}
+                                  </p>
+                                </div>
                               </div>
-                              {!isLast && (
+                            )}
+
+                            {/* RENDER STANDARD STEP */}
+                            <div className="flex items-start gap-3">
+                              <div className="flex flex-col items-center">
                                 <div
-                                  className={`w-px flex-1 mt-1 ${
-                                    isNextActive
-                                      ? "bg-blue-600"
-                                      : "bg-gray-300"
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
+                                    isActive
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-gray-300 text-gray-600"
                                   }`}
-                                />
-                              )}
-                            </div>
-                            <div className="pt-1">
-                              <p
-                                className={`text-xs font-[Roboto] ${
-                                  isActive
-                                    ? "text-blue-700 font-semibold"
-                                    : "text-gray-600"
-                                }`}
-                              >
-                                {step.label}
-                              </p>
-                              <p className="text-[10px] text-gray-500 font-[Roboto] mt-1">
-                                {formatTimelineDate(stepDate ?? null)}
-                              </p>
+                                >
+                                  {isActive ? (
+                                    <Check className="w-4 h-4" />
+                                  ) : (
+                                    idx + 1
+                                  )}
+                                </div>
+                                {!isLast && (
+                                  <div
+                                    className={`w-px flex-1 mt-1 ${
+                                      isNextActive
+                                        ? "bg-blue-600"
+                                        : "bg-gray-300"
+                                    } min-h-[20px]`}
+                                    />
+                                )}
+                              </div>
+                              <div className="pt-1">
+                                <p
+                                  className={`text-xs font-[Roboto] ${
+                                    isActive
+                                      ? "text-blue-700 font-semibold"
+                                      : "text-gray-600"
+                                  }`}
+                                >
+                                  {step.label}
+                                </p>
+                                <p className="text-[10px] text-gray-500 font-[Roboto] mt-1">
+                                  {formatTimelineDate(stepDate ?? null)}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                    {(() => {
-                      const derivedStatus =
-                        getStatusFromTimeline(selectedStudent);
-                      return (
-                        <p className="text-xs text-gray-600 font-[Roboto] mt-4">
-                          Tahap:{" "}
-                          <span className="font-semibold text-blue-700">
-                            {selectedStudent.tahap}
-                          </span>{" "}
-                          • Status:{" "}
-                          <span className="font-semibold text-blue-700">
-                            {derivedStatus}
-                          </span>
-                        </p>
-                      );
-                    })()}
                   </div>
                 </div>
 
-                {/* Dummy info sidang */}
+                {/* Info Sidang (Dengan Tombol Approve Sidang) */}
                 <div className="mb-6">
                   <h3 className="text-gray-800 font-[Poppins] mb-3 flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
+                    <Gavel className="w-5 h-5" />
                     Informasi Sidang
                   </h3>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
@@ -1785,71 +1548,86 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                       <Calendar className="w-4 h-4 text-gray-600" />
                       <div>
                         <p className="text-xs text-gray-600 font-[Roboto]">
-                          Tanggal (contoh)
+                          Jadwal Sidang
                         </p>
                         <p className="text-sm text-gray-800 font-[Roboto]">
-                          12 Januari 2026
+                          12 Januari 2026, 09.00 WIB
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-gray-600" />
-                      <div>
-                        <p className="text-xs text-gray-600 font-[Roboto]">
-                          Waktu
-                        </p>
-                        <p className="text-sm text-gray-800 font-[Roboto]">
-                          09.00 - 11.00 WIB
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-gray-600" />
-                      <div>
-                        <p className="text-xs text-gray-600 font-[Roboto]">
-                          Lokasi
-                        </p>
-                        <p className="text-sm text-gray-800 font-[Roboto]">
-                          Ruang Sidang 1 Departemen Informatika
-                        </p>
-                      </div>
-                    </div>
+
+                    {/* APPROVAL SECTION: SIDANG */}
+                    {hasHiddenApprovalState(selectedStudent) &&
+                      getPendingApprovalType(selectedStudent) === "Sidang" && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="bg-white border border-indigo-200 rounded p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-indigo-50 rounded-full text-indigo-600">
+                                <Gavel className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-800 font-[Poppins]">
+                                  Persetujuan Sidang
+                                </p>
+                                <p className="text-xs text-gray-500 font-[Roboto]">
+                                  Setujui jadwal dan pendaftaran sidang.
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() =>
+                                handleApproveStudent(selectedStudent.id)
+                              }
+                              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-[Roboto] flex items-center gap-1 transition-colors"
+                            >
+                              <Check className="w-4 h-4" /> Approve Sidang
+                            </button>
+                          </div>
+                        </div>
+                      )}
                   </div>
                 </div>
 
+                {/* Catatan Revisi (Dengan Tombol Approve Revisi) */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                   <h4 className="text-blue-800 font-[Poppins] mb-2 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4" />
                     Catatan Revisi
                   </h4>
-                  <p className="text-sm text-blue-700 font-[Roboto]">
-                    Mahasiswa diminta untuk melakukan revisi terhadap naskah
-                    sesuai masukan dosen dan/atau penguji. Catatan detail bisa
-                    ditambahkan pada halaman log bimbingan.
+                  <p className="text-sm text-blue-700 font-[Roboto] mb-4">
+                    Catatan revisi detail dapat dilihat pada log bimbingan.
                   </p>
-                </div>
 
-                {hasHiddenApprovalState(selectedStudent) && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                    <h4 className="text-orange-800 font-[Poppins] mb-3 flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5" />
-                      Persetujuan
-                    </h4>
-                    <p className="text-sm text-orange-700 font-[Roboto] mb-4">
-                      Mahasiswa ini sedang menunggu persetujuan pada salah satu
-                      tahap timeline (misalnya persetujuan proposal atau daftar
-                      sidang). Berikan persetujuan untuk melanjutkan ke step
-                      berikutnya.
-                    </p>
-                    <button
-                      onClick={() => handleApproveStudent(selectedStudent.id)}
-                      className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-[Roboto] flex items-center justify-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      Setujui & Lanjutkan Tahap
-                    </button>
-                  </div>
-                )}
+                  {/* APPROVAL SECTION: REVISI */}
+                  {hasHiddenApprovalState(selectedStudent) &&
+                    getPendingApprovalType(selectedStudent) === "Revisi" && (
+                      <div className="pt-2 border-t border-blue-200/50">
+                        <div className="bg-white border border-orange-200 rounded p-3 flex items-center justify-between shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-orange-50 rounded-full text-orange-600">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800 font-[Poppins]">
+                                Persetujuan Revisi
+                              </p>
+                              <p className="text-xs text-gray-500 font-[Roboto]">
+                                Konfirmasi bahwa revisi telah selesai.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() =>
+                              handleApproveStudent(selectedStudent.id)
+                            }
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-[Roboto] flex items-center gap-1 transition-colors"
+                          >
+                            <Check className="w-4 h-4" /> Approve Revisi
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                </div>
               </div>
 
               <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-6">
@@ -1924,14 +1702,6 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                     </div>
                     <div>
                       <p className="text-xs text-gray-600 font-[Roboto] mb-1">
-                        Angkatan
-                      </p>
-                      <p className="text-sm text-gray-800 font-[Roboto]">
-                        {selectedTopic.angkatan}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
                         Judul
                       </p>
                       <p className="text-sm text-gray-800 font-[Roboto]">
@@ -1946,35 +1716,7 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                         {selectedTopic.abstrak}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-600 font-[Roboto] mb-1">
-                        Tanggal Ajuan
-                      </p>
-                      <p className="text-sm text-gray-800 font-[Roboto]">
-                        {new Date(selectedTopic.tanggalAjuan).toLocaleDateString(
-                          "id-ID",
-                          {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          }
-                        )}
-                      </p>
-                    </div>
                   </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="text-blue-800 font-[Poppins] mb-2 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    Catatan
-                  </h4>
-                  <p className="text-sm text-blue-700 font-[Roboto]">
-                    Pastikan untuk memverifikasi kelayakan topik sebelum
-                    memberikan persetujuan. Topik harus sesuai dengan bidang
-                    keahlian dan memiliki ruang lingkup yang jelas.
-                  </p>
                 </div>
               </div>
 
@@ -2065,7 +1807,9 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                       {pendingCount > 0 && (
                         <button
                           onClick={() =>
-                            handleApproveAllBimbingan(selectedBimbinganStudent.id)
+                            handleApproveAllBimbingan(
+                              selectedBimbinganStudent.id
+                            )
                           }
                           className="ml-auto px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-[Roboto] flex items-center gap-1"
                         >
@@ -2135,7 +1879,7 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
                     <div className="py-6 text-center">
                       <MessageSquare className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                       <p className="text-sm text-gray-500 font-[Roboto]">
-                        Belum ada riwayat bimbingan untuk mahasiswa ini.
+                        Belum ada riwayat bimbingan.
                       </p>
                     </div>
                   )}
@@ -2163,16 +1907,16 @@ export function BimbinganAktif({ initialView = "default" }: BimbinganAktifProps)
           title="Panduan Penggunaan - Bimbingan Aktif"
           steps={[
             {
-              title: "Kelola Bimbingan Aktif",
+              title: "Filter Perlu Approval",
               description:
-                "Halaman Bimbingan Aktif menampilkan semua mahasiswa yang sedang Anda bimbing. Anda dapat melihat progress mahasiswa, status terkini, dan timeline proses.",
+                "Gunakan filter 'Perlu Approval' untuk melihat mahasiswa yang membutuhkan persetujuan TA, Sidang, atau Revisi.",
               imageUrl:
-                "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800",
+                "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800",
             },
             {
-              title: "Lihat Detail dan Setujui Tahap",
+              title: "Setujui Tahapan",
               description:
-                "Klik tombol 'Lihat' pada setiap card mahasiswa untuk membuka detail, melihat timeline tahap, dan melakukan persetujuan pada tahapan yang membutuhkan approval.",
+                "Klik 'Lihat' dan temukan tombol persetujuan pada bagian Informasi Tugas Akhir, Informasi Sidang, atau Revisi sesuai tahap mahasiswa.",
               imageUrl:
                 "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800",
             },
