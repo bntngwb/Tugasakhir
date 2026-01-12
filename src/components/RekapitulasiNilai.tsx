@@ -121,37 +121,9 @@ export function RekapitulasiNilai() {
   );
   const [selectedJenis, setSelectedJenis] = useState("Sidang Proposal");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Modal hasil & kehadiran
-  const [modalData, setModalData] = useState({
-    hasil: "",
-    supervisorAttendance: {
-      pembimbing1: null as boolean | null,
-      penguji1: null as boolean | null,
-      penguji2: null as boolean | null,
-    },
-  });
-
-  // ====== State untuk Edit Nilai ======
-  const [isGradeModalOpen, setIsGradeModalOpen] = useState(false);
-  const [gradeModalStudent, setGradeModalStudent] = useState<Student | null>(
-    null
-  );
-  const [gradeForm, setGradeForm] = useState<GradeFormState>({
-    pembimbing1: { ...emptyCriteria },
-    penguji1: { ...emptyCriteria },
-    penguji2: { ...emptyCriteria },
-  });
-  const [gradeDetails, setGradeDetails] = useState<
-    Record<number, GradeDetailsPerStudent>
-  >({});
-  const [nilaiOverrides, setNilaiOverrides] = useState<Record<number, string>>(
-    {}
-  );
-
-  const students: Student[] = [
+  
+  // FIXED: Menggunakan State untuk data siswa agar bisa di-update
+  const [studentsData, setStudentsData] = useState<Student[]>([
     {
       id: 1,
       nrp: "5033221024",
@@ -205,9 +177,58 @@ export function RekapitulasiNilai() {
         },
       },
     },
-  ];
+    {
+      id: 3,
+      nrp: "5033221099",
+      nama: "BUDI SANTOSO",
+      lab: "Rekayasa Perangkat Lunak",
+      judulTA:
+        "PENGEMBANGAN SISTEM INFORMASI MANAJEMEN RISIKO PADA PROYEK KONSTRUKSI BERBASIS WEB",
+      judulTAEn:
+        "DEVELOPMENT OF WEB-BASED RISK MANAGEMENT INFORMATION SYSTEM IN CONSTRUCTION PROJECTS",
+      periodeSidang: "Seminar Proposal - Gasal 2025 (I)",
+      jenisSidang: "Sidang Proposal",
+      hasil: "Diterima",
+      nilai: "85.50 (A)",
+      supervisors: {
+        pembimbing1: { nama: "Rully Soelaiman, S.Kom., M.Kom.", hadir: true },
+        penguji1: { nama: "Fatimah S.T., M.T.", hadir: true },
+        penguji2: { nama: "Bagus Jati Santoso, S.Kom., Ph.D.", hadir: true },
+      },
+    }
+  ]);
 
-  const filteredStudents = students.filter(
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Modal hasil & kehadiran
+  const [modalData, setModalData] = useState({
+    hasil: "",
+    supervisorAttendance: {
+      pembimbing1: null as boolean | null,
+      penguji1: null as boolean | null,
+      penguji2: null as boolean | null,
+    },
+  });
+
+  // ====== State untuk Edit Nilai ======
+  const [isGradeModalOpen, setIsGradeModalOpen] = useState(false);
+  const [gradeModalStudent, setGradeModalStudent] = useState<Student | null>(
+    null
+  );
+  const [gradeForm, setGradeForm] = useState<GradeFormState>({
+    pembimbing1: { ...emptyCriteria },
+    penguji1: { ...emptyCriteria },
+    penguji2: { ...emptyCriteria },
+  });
+  const [gradeDetails, setGradeDetails] = useState<
+    Record<number, GradeDetailsPerStudent>
+  >({});
+  const [nilaiOverrides, setNilaiOverrides] = useState<Record<number, string>>(
+    {}
+  );
+
+  const filteredStudents = studentsData.filter(
     (student) =>
       (student.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
         student.nrp.includes(searchQuery) ||
@@ -241,6 +262,7 @@ export function RekapitulasiNilai() {
     setIsModalOpen(true);
   };
 
+  // FIXED: Logic untuk update state data siswa saat "Simpan" ditekan
   const handleSubmitAttendance = () => {
     if (!modalData.hasil) {
       toast.error("Mohon pilih hasil akhir sidang!");
@@ -257,51 +279,71 @@ export function RekapitulasiNilai() {
       return;
     }
 
+    if (selectedStudent) {
+      setStudentsData((prevStudents) =>
+        prevStudents.map((s) => {
+          if (s.id === selectedStudent.id) {
+            return {
+              ...s,
+              hasil: modalData.hasil,
+              supervisors: {
+                pembimbing1: {
+                  ...s.supervisors.pembimbing1,
+                  hadir: modalData.supervisorAttendance.pembimbing1,
+                },
+                penguji1: {
+                  ...s.supervisors.penguji1,
+                  hadir: modalData.supervisorAttendance.penguji1,
+                },
+                penguji2: {
+                  ...s.supervisors.penguji2,
+                  hadir: modalData.supervisorAttendance.penguji2,
+                },
+              },
+            };
+          }
+          return s;
+        })
+      );
+    }
+
     toast.success("Kelulusan sidang dan kehadiran dosen berhasil disimpan");
     setIsModalOpen(false);
   };
 
-const handleScoreChange = (
-  role: RoleKey,
-  key: CriteriaKey,
-  value: string
-) => {
-  // boleh kosong dulu supaya user bisa hapus
-  if (value === "") {
+  const handleScoreChange = (
+    role: RoleKey,
+    key: CriteriaKey,
+    value: string
+  ) => {
+    if (value === "") {
+      setGradeForm((prev) => ({
+        ...prev,
+        [role]: {
+          ...prev[role],
+          [key]: "",
+        },
+      }));
+      return;
+    }
+
+    const numericOnly = value.replace(/[^0-9]/g, "");
+    let num = parseInt(numericOnly, 10);
+    if (isNaN(num)) {
+      num = 0;
+    }
+    if (num < 0) num = 0;
+    if (num > 100) num = 100;
+    const normalized = num.toString();
+
     setGradeForm((prev) => ({
       ...prev,
       [role]: {
         ...prev[role],
-        [key]: "",
+        [key]: normalized,
       },
     }));
-    return;
-  }
-
-  // buang semua karakter selain angka 0-9
-  const numericOnly = value.replace(/[^0-9]/g, "");
-
-  // parse ke integer
-  let num = parseInt(numericOnly, 10);
-
-  if (isNaN(num)) {
-    num = 0;
-  }
-
-  // clamp 0–100
-  if (num < 0) num = 0;
-  if (num > 100) num = 100;
-
-  const normalized = num.toString(); // tanpa koma/desimal
-
-  setGradeForm((prev) => ({
-    ...prev,
-    [role]: {
-      ...prev[role],
-      [key]: normalized,
-    },
-  }));
-};
+  };
 
 
   const openGradeModal = (student: Student) => {
@@ -310,7 +352,6 @@ const handleScoreChange = (
     const existing = gradeDetails[student.id];
 
     if (existing) {
-      // Sudah pernah disimpan → prefill dari nilai sebelumnya
       setGradeForm({
         pembimbing1: existing.pembimbing1
           ? {
@@ -338,7 +379,6 @@ const handleScoreChange = (
           : { ...emptyCriteria },
       });
     } else {
-      // Belum ada detail → gunakan nilai akhir di tabel sebagai nilai awal semua kriteria
       const rawNilai = nilaiOverrides[student.id] ?? student.nilai;
       const match = rawNilai.match(/[\d.,]+/);
       let baseScore = 80;
@@ -346,7 +386,7 @@ const handleScoreChange = (
         const parsed = parseFloat(match[0].replace(",", "."));
         if (!isNaN(parsed)) baseScore = parsed;
       }
-      const baseString = baseScore.toFixed(2);
+      const baseString = baseScore.toFixed(0); // integer for form inputs
 
       setGradeForm({
         pembimbing1: {
@@ -376,23 +416,22 @@ const handleScoreChange = (
   const handleSaveGrades = () => {
     if (!gradeModalStudent) return;
 
-    // Validasi semua input terisi dan 0–100
-for (const role of ACTIVE_ROLES) {
-  for (const crit of CRITERIA_CONFIG) {
-    const raw = gradeForm[role][crit.key];
-    if (raw === "" || raw === undefined) {
-      toast.error("Mohon lengkapi semua nilai penilaian dosen.");
-      return;
+    // Validasi
+    for (const role of ACTIVE_ROLES) {
+      for (const crit of CRITERIA_CONFIG) {
+        const raw = gradeForm[role][crit.key];
+        if (raw === "" || raw === undefined) {
+          toast.error("Mohon lengkapi semua nilai penilaian dosen.");
+          return;
+        }
+        const num = parseInt(raw, 10);
+        if (isNaN(num) || num < 0 || num > 100) {
+          toast.error("Nilai harus berada pada rentang 0 - 100 (bilangan bulat).");
+          return;
+        }
+      }
     }
-    const num = parseInt(raw, 10);
-    if (isNaN(num) || num < 0 || num > 100) {
-      toast.error("Nilai harus berada pada rentang 0 - 100 (bilangan bulat).");
-      return;
-    }
-  }
-}
 
-    // Hitung nilai per dosen (berbobot) dan nilai akhir
     const lecturerScores: {
       role: RoleKey;
       scores: GradeRoleScores;
@@ -435,9 +474,19 @@ for (const role of ACTIVE_ROLES) {
       },
     }));
 
+    // FIXED: Update nilai di tabel utama juga (agar konsisten dengan logic state siswa)
+    // Update display override
     setNilaiOverrides((prev) => ({
       ...prev,
       [gradeModalStudent.id]: `${overallScore.toFixed(2)} (${letter})`,
+    }));
+
+    // Optional: Update actual data siswa if needed for persistence
+    setStudentsData(prev => prev.map(s => {
+        if(s.id === gradeModalStudent.id) {
+            return { ...s, nilai: `${overallScore.toFixed(2)} (${letter})` }
+        }
+        return s;
     }));
 
     toast.success("Nilai sidang berhasil disimpan");
@@ -508,8 +557,6 @@ for (const role of ACTIVE_ROLES) {
     </div>
   );
 
-  // ================= MAIN UI =================
-  // Live score untuk modal (kalau sedang terbuka)
   const liveAggregate = computeAggregateFromForm(gradeForm);
   const liveScore = liveAggregate?.overallScore;
   const liveLetter = liveAggregate?.letter;
