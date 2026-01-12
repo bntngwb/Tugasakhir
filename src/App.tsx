@@ -353,60 +353,58 @@ export default function App() {
       });
     }
 
-const newProposal: Proposal = {
-  id: editingProposal ? editingProposal.id : Date.now(),
-  title: proposalData.title,
-  category: proposalData.category,
-  grouped: proposalData.grouped,
-  abstract: proposalData.abstract,
-  keywords: proposalData.keywords,
-  supervisor1: proposalData.supervisor1,
-  supervisor2: proposalData.supervisor2 || "-",
-  file: proposalData.file,
-  fileName: proposalData.file ? proposalData.file.name : "",
-  laboratory: proposalData.category.split(" - ")[0] || "Laboratorium",
-  scheduleDate: "",
-  scheduleTime: "",
-  status: isDraft ? "Draft" : "Menunggu Persetujuan",
-  isDraft: isDraft,
-  missingFields: proposalData.missingFields || [],
-  stage: editingProposal ? editingProposal.stage : "proposal",
+    const newProposal: Proposal = {
+      id: editingProposal ? editingProposal.id : Date.now(),
+      title: proposalData.title,
+      category: proposalData.category,
+      grouped: proposalData.grouped,
+      abstract: proposalData.abstract,
+      keywords: proposalData.keywords,
+      supervisor1: proposalData.supervisor1,
+      supervisor2: proposalData.supervisor2 || "-",
+      file: proposalData.file,
+      fileName: proposalData.file ? proposalData.file.name : "",
+      laboratory: proposalData.category.split(" - ")[0] || "Laboratorium",
+      scheduleDate: "",
+      scheduleTime: "",
+      status: isDraft ? "Draft" : "Menunggu Persetujuan",
+      isDraft: isDraft,
+      missingFields: proposalData.missingFields || [],
+      stage: editingProposal ? editingProposal.stage : "proposal",
 
-  // ⬇️ simpan file TOEFL & Screenshot Bimbingan (kalau ada)
-  toeflFile:
-    proposalData.toeflFile ??
-    editingProposal?.toeflFile ??
-    null,
-  toeflFileName:
-    proposalData.toeflFile
-      ? proposalData.toeflFile.name
-      : editingProposal?.toeflFileName ?? "",
-  guidanceScreenshotFile:
-    proposalData.guidanceScreenshotFile ??
-    editingProposal?.guidanceScreenshotFile ??
-    null,
-  guidanceScreenshotFileName:
-    proposalData.guidanceScreenshotFile
-      ? proposalData.guidanceScreenshotFile.name
-      : editingProposal?.guidanceScreenshotFileName ?? "",
+      // ⬇️ simpan file TOEFL & Screenshot Bimbingan (kalau ada)
+      toeflFile:
+        proposalData.toeflFile ?? editingProposal?.toeflFile ?? null,
+      toeflFileName:
+        proposalData.toeflFile
+          ? proposalData.toeflFile.name
+          : editingProposal?.toeflFileName ?? "",
+      guidanceScreenshotFile:
+        proposalData.guidanceScreenshotFile ??
+        editingProposal?.guidanceScreenshotFile ??
+        null,
+      guidanceScreenshotFileName:
+        proposalData.guidanceScreenshotFile
+          ? proposalData.guidanceScreenshotFile.name
+          : editingProposal?.guidanceScreenshotFileName ?? "",
 
-  // Initialize approval fields if not draft
-  supervisor1Approval: !isDraft
-    ? editingProposal?.supervisor1Approval || "pending"
-    : editingProposal?.supervisor1Approval,
-  supervisor2Approval: !isDraft
-    ? editingProposal?.supervisor2Approval || "pending"
-    : editingProposal?.supervisor2Approval,
-  adminApproval: !isDraft
-    ? editingProposal?.adminApproval || "pending"
-    : editingProposal?.adminApproval,
-  approvalDeadline: !isDraft
-    ? editingProposal?.approvalDeadline || approvalDeadline
-    : editingProposal?.approvalDeadline,
-  supervisor1ApprovalDate: editingProposal?.supervisor1ApprovalDate,
-  supervisor2ApprovalDate: editingProposal?.supervisor2ApprovalDate,
-  adminApprovalDate: editingProposal?.adminApprovalDate,
-};
+      // Initialize approval fields if not draft
+      supervisor1Approval: !isDraft
+        ? editingProposal?.supervisor1Approval || "pending"
+        : editingProposal?.supervisor1Approval,
+      supervisor2Approval: !isDraft
+        ? editingProposal?.supervisor2Approval || "pending"
+        : editingProposal?.supervisor2Approval,
+      adminApproval: !isDraft
+        ? editingProposal?.adminApproval || "pending"
+        : editingProposal?.adminApproval,
+      approvalDeadline: !isDraft
+        ? editingProposal?.approvalDeadline || approvalDeadline
+        : editingProposal?.approvalDeadline,
+      supervisor1ApprovalDate: editingProposal?.supervisor1ApprovalDate,
+      supervisor2ApprovalDate: editingProposal?.supervisor2ApprovalDate,
+      adminApprovalDate: editingProposal?.adminApprovalDate,
+    };
 
     if (editingProposal) {
       // Update existing proposal
@@ -442,7 +440,10 @@ const newProposal: Proposal = {
     );
   };
 
-  const handleUpdateProposal = (proposalId: number, updates: Partial<Proposal>) => {
+  const handleUpdateProposal = (
+    proposalId: number,
+    updates: Partial<Proposal>
+  ) => {
     setProposals(
       proposals.map((p) => (p.id === proposalId ? { ...p, ...updates } : p))
     );
@@ -532,14 +533,8 @@ const newProposal: Proposal = {
       })
     );
 
-    // Update status hearing proposal jadi "Sidang Selesai"
-    setTakenHearings(
-      takenHearings.map((h) =>
-        h.proposalId === proposalId && h.hearingType === "Proposal"
-          ? ({ ...h, status: "Sidang Selesai" } as TakenHearing)
-          : h
-      )
-    );
+    // FIXED: Bagian update hearing dihapus agar tidak menimpa state result
+    // (Update status hearing "Sidang Selesai" sudah ditangani via onUpdateHearingInfo di MySidangDetail)
   };
 
   const handleCompleteFinalDefense = (proposalId: number) => {
@@ -549,13 +544,8 @@ const newProposal: Proposal = {
       )
     );
 
-    setTakenHearings((prev) =>
-      prev.map((h) =>
-        h.proposalId === proposalId && h.hearingType === "Final"
-          ? ({ ...h, status: "Sidang Selesai" } as TakenHearing)
-          : h
-      )
-    );
+    // FIXED: Bagian update hearing dihapus agar tidak menimpa state result
+    // (Update status hearing "Sidang Selesai" sudah ditangani via onUpdateHearingInfo di MySidangDetail)
   };
 
   const handleUpdateHearingInfo = (
@@ -563,9 +553,7 @@ const newProposal: Proposal = {
     info: Partial<TakenHearing>
   ) => {
     setTakenHearings(
-      takenHearings.map((h) =>
-        h.id === hearingId ? { ...h, ...info } : h
-      )
+      takenHearings.map((h) => (h.id === hearingId ? { ...h, ...info } : h))
     );
     // Also update selectedTakenHearing if it's the one being updated
     if (selectedTakenHearing && selectedTakenHearing.id === hearingId) {
@@ -619,12 +607,14 @@ const newProposal: Proposal = {
               revisionFile: file,
               revisionFileName: fileName,
               status: "Menunggu Approval Revisi",
-              revisionApprovalDeadline:
-                revisionApprovalDeadline.toLocaleDateString("id-ID", {
+              revisionApprovalDeadline: revisionApprovalDeadline.toLocaleDateString(
+                "id-ID",
+                {
                   day: "numeric",
                   month: "long",
                   year: "numeric",
-                }),
+                }
+              ),
             } as TakenHearing)
           : h
       )
@@ -636,12 +626,14 @@ const newProposal: Proposal = {
         revisionFile: file,
         revisionFileName: fileName,
         status: "Menunggu Approval Revisi",
-        revisionApprovalDeadline:
-          revisionApprovalDeadline.toLocaleDateString("id-ID", {
+        revisionApprovalDeadline: revisionApprovalDeadline.toLocaleDateString(
+          "id-ID",
+          {
             day: "numeric",
             month: "long",
             year: "numeric",
-          }),
+          }
+        ),
       });
     }
   };
@@ -815,8 +807,7 @@ const newProposal: Proposal = {
               onViewProposal={handleViewProposalDetail}
               hearings={hearings.filter((h) => h.type === "Proposal")}
               onNavigateToHearing={handleNavigateToHearing}
-              onUpdateProposal={handleUpdateProposal}   // ⬅️ ini yang penting
-
+              onUpdateProposal={handleUpdateProposal} // ⬅️ ini yang penting
             />
           )}
 
@@ -892,9 +883,7 @@ const newProposal: Proposal = {
           {currentPage === "Pengumuman" &&
             userRole === "Admin" &&
             showCreatePengumuman && (
-              <PengumumanAdmin
-                onBack={() => setShowCreatePengumuman(false)}
-              />
+              <PengumumanAdmin onBack={() => setShowCreatePengumuman(false)} />
             )}
 
           {currentPage === "Jadwal Sidang" &&
@@ -918,68 +907,65 @@ const newProposal: Proposal = {
             />
           )}
 
-          {currentPage === "Administrasi" &&
-            userRole === "Admin" && <Administrasi />}
+          {currentPage === "Administrasi" && userRole === "Admin" && (
+            <Administrasi />
+          )}
 
-          {currentPage === "Alokasi Pembimbing" &&
-            userRole === "Admin" && <AlokasiPembimbing />}
+          {currentPage === "Alokasi Pembimbing" && userRole === "Admin" && (
+            <AlokasiPembimbing />
+          )}
 
-          {currentPage === "Pembimbingan Dosen" &&
-            userRole === "Admin" && <PembimbinganDosenAdmin />}
+          {currentPage === "Pembimbingan Dosen" && userRole === "Admin" && (
+            <PembimbinganDosenAdmin />
+          )}
 
-          {currentPage === "Tugas Akhir Mahasiswa" &&
-            userRole === "Admin" && <TugasAkhirMahasiswa />}
+          {currentPage === "Tugas Akhir Mahasiswa" && userRole === "Admin" && (
+            <TugasAkhirMahasiswa />
+          )}
 
-          {currentPage === "Rekapitulasi Nilai" &&
-            userRole === "Admin" && <RekapitulasiNilai />}
+          {currentPage === "Rekapitulasi Nilai" && userRole === "Admin" && (
+            <RekapitulasiNilai />
+          )}
 
-          {currentPage === "Konfigurasi Prodi" &&
-            userRole === "Admin" && (
-              <KonfigurasiProdi onNavigate={handleNavigate} />
-            )}
+          {currentPage === "Konfigurasi Prodi" && userRole === "Admin" && (
+            <KonfigurasiProdi onNavigate={handleNavigate} />
+          )}
 
-          {currentPage === "Konfigurasi Nilai" &&
-            userRole === "Admin" && (
-              <KonfigurasiNilai onNavigate={handleNavigate} />
-            )}
+          {currentPage === "Konfigurasi Nilai" && userRole === "Admin" && (
+            <KonfigurasiNilai onNavigate={handleNavigate} />
+          )}
 
           {currentPage === "Konfigurasi myITS Thesis" &&
             userRole === "Admin" && (
               <KonfigurasiMyITS onNavigate={handleNavigate} />
             )}
 
-          {currentPage === "Konfigurasi Prasyarat" &&
-            userRole === "Admin" && (
-              <KonfigurasiPrasyarat onNavigate={handleNavigate} />
-            )}
+          {currentPage === "Konfigurasi Prasyarat" && userRole === "Admin" && (
+            <KonfigurasiPrasyarat onNavigate={handleNavigate} />
+          )}
 
-          {currentPage === "Konfigurasi Sidang" &&
-            userRole === "Admin" && (
-              <KonfigurasiSidang onNavigate={handleNavigate} />
-            )}
+          {currentPage === "Konfigurasi Sidang" && userRole === "Admin" && (
+            <KonfigurasiSidang onNavigate={handleNavigate} />
+          )}
 
-          {currentPage === "Kelola Pengumuman" &&
-            userRole === "Admin" && (
-              <PengumumanAdminList onNavigate={handleNavigate} />
-            )}
+          {currentPage === "Kelola Pengumuman" && userRole === "Admin" && (
+            <PengumumanAdminList onNavigate={handleNavigate} />
+          )}
 
-          {currentPage === "Buat Pengumuman Baru" &&
-            userRole === "Admin" && (
-              <PengumumanAdminEdit onNavigate={handleNavigate} />
-            )}
+          {currentPage === "Buat Pengumuman Baru" && userRole === "Admin" && (
+            <PengumumanAdminEdit onNavigate={handleNavigate} />
+          )}
 
-          {currentPage === "Edit Pengumuman" &&
-            userRole === "Admin" && (
-              <PengumumanAdminEdit
-                onNavigate={handleNavigate}
-                announcementId={editingAnnouncementId}
-              />
-            )}
+          {currentPage === "Edit Pengumuman" && userRole === "Admin" && (
+            <PengumumanAdminEdit
+              onNavigate={handleNavigate}
+              announcementId={editingAnnouncementId}
+            />
+          )}
 
-          {currentPage === "Data Prodi" &&
-            userRole === "Admin" && (
-              <DataProdi onNavigate={handleNavigate} />
-            )}
+          {currentPage === "Data Prodi" && userRole === "Admin" && (
+            <DataProdi onNavigate={handleNavigate} />
+          )}
         </div>
       </div>
       <Toaster />

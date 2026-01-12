@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { Settings, ClipboardList, Users, ArrowRight, HelpCircle, Database, Calendar, GraduationCap, FileText, CheckCircle, X, MessageSquare } from "lucide-react";
+import {
+  Settings,
+  ArrowRight,
+  HelpCircle,
+  Calendar,
+  GraduationCap,
+  FileText,
+  CheckCircle,
+  X,
+  MessageSquare,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface AdminBerandaProps {
@@ -20,57 +30,74 @@ interface Question {
 export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState("");
-  
+
   // Mock data pertanyaan mahasiswa
-  const questions: Question[] = [
+  const [questions, setQuestions] = useState<Question[]>([
     {
       id: 1,
       name: "Ahmad Fauzi Ramadhan",
       nrp: "5025201001",
       category: "Teknis",
-      question: "Bagaimana cara mengupload file proposal yang ukurannya lebih dari 10MB? Saya sudah coba berkali-kali tapi selalu gagal.",
+      question:
+        "Bagaimana cara mengupload file proposal yang ukurannya lebih dari 10MB? Saya sudah coba berkali-kali tapi selalu gagal.",
       date: "4 Des 2025, 10:30",
-      status: "pending"
+      status: "pending",
     },
     {
       id: 2,
       name: "Siti Aminah Putri",
       nrp: "5025201015",
       category: "Sidang",
-      question: "Apakah saya bisa mengajukan reschedule jadwal sidang proposal? Karena ada bentrok dengan kegiatan kampus lain.",
+      question:
+        "Apakah saya bisa mengajukan reschedule jadwal sidang proposal? Karena ada bentrok dengan kegiatan kampus lain.",
       date: "3 Des 2025, 14:20",
-      status: "pending"
+      status: "pending",
     },
     {
       id: 3,
       name: "Bayu Aditya Pratama",
       nrp: "6025201002",
       category: "Bimbingan",
-      question: "Dosen pembimbing saya tidak merespon email untuk bimbingan. Bagaimana solusinya?",
+      question:
+        "Dosen pembimbing saya tidak merespon email untuk bimbingan. Bagaimana solusinya?",
       date: "2 Des 2025, 09:15",
-      status: "pending"
+      status: "pending",
     },
     {
       id: 4,
       name: "Dewi Kartika Sari",
       nrp: "5025201020",
       category: "Administrasi",
-      question: "Untuk persyaratan sidang TA, apakah wajib sudah mengumpulkan semua berkas atau bisa menyusul?",
+      question:
+        "Untuk persyaratan sidang TA, apakah wajib sudah mengumpulkan semua berkas atau bisa menyusul?",
       date: "1 Des 2025, 16:45",
       status: "answered",
-      answer: "Semua berkas persyaratan harus sudah terkumpul minimal 7 hari sebelum jadwal sidang. Silakan cek di menu Sidang untuk detail persyaratan."
-    }
-  ];
+      answer:
+        "Semua berkas persyaratan harus sudah terkumpul minimal 7 hari sebelum jadwal sidang. Silakan cek di menu Sidang untuk detail persyaratan.",
+    },
+  ]);
 
-  const pendingQuestions = questions.filter(q => q.status === "pending");
+  const pendingQuestions = questions.filter((q) => q.status === "pending");
+
+  const openQuestion = (q: Question) => {
+    setSelectedQuestion(q);
+    setAnswer(q.status === "answered" ? q.answer ?? "" : "");
+  };
 
   const handleSubmitAnswer = () => {
-    if (answer.trim()) {
-      // Handle submit answer logic here
-      console.log("Answer submitted:", answer);
-      setAnswer("");
-      setSelectedQuestion(null);
-    }
+    if (!selectedQuestion) return;
+    const trimmed = answer.trim();
+    if (!trimmed) return;
+
+    const updated: Question = {
+      ...selectedQuestion,
+      status: "answered",
+      answer: trimmed,
+    };
+
+    setQuestions((prev) => prev.map((q) => (q.id === updated.id ? updated : q)));
+    setSelectedQuestion(updated);
+    setAnswer(updated.answer ?? "");
   };
 
   return (
@@ -85,15 +112,27 @@ export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
       {/* Info Banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
         <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <div>
             <p className="text-sm text-gray-700 font-[Roboto]">
               <span className="font-semibold">Terbaru dari myITS Thesis :</span>
             </p>
             <ul className="text-sm text-gray-700 font-[Roboto] mt-1 list-disc ml-5">
-              <li>Sesuaikan kehadiran dosen pada sidang, karena pembagi penilaian saat ini berdasarkan dosen yang hadir.</li>
+              <li>
+                Sesuaikan kehadiran dosen pada sidang, karena pembagi penilaian saat ini berdasarkan dosen yang hadir.
+              </li>
             </ul>
           </div>
         </div>
@@ -102,8 +141,8 @@ export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
       {/* Bantu Mahasiswa Section */}
       <div className="mb-8">
         <h2 className="text-gray-800 font-[Poppins] mb-4">Bantu Mahasiswa</h2>
-        <div 
-          onClick={() => pendingQuestions.length > 0 && setSelectedQuestion(pendingQuestions[0])}
+        <div
+          onClick={() => pendingQuestions.length > 0 && openQuestion(pendingQuestions[0])}
           className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer relative"
         >
           <div className="flex items-start gap-4">
@@ -120,10 +159,9 @@ export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
                 )}
               </div>
               <p className="text-sm text-gray-600 font-[Roboto]">
-                {pendingQuestions.length > 0 
+                {pendingQuestions.length > 0
                   ? `Ada ${pendingQuestions.length} pertanyaan yang menunggu jawaban dari Anda`
-                  : "Tidak ada pertanyaan baru dari mahasiswa"
-                }
+                  : "Tidak ada pertanyaan baru dari mahasiswa"}
               </p>
             </div>
             <button className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors">
@@ -281,12 +319,8 @@ export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
                       <MessageSquare className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <h2 className="text-xl text-gray-800 font-[Poppins]">
-                        Detail Pertanyaan
-                      </h2>
-                      <p className="text-sm text-gray-600 font-[Roboto]">
-                        {selectedQuestion.date}
-                      </p>
+                      <h2 className="text-xl text-gray-800 font-[Poppins]">Detail Pertanyaan</h2>
+                      <p className="text-sm text-gray-600 font-[Roboto]">{selectedQuestion.date}</p>
                     </div>
                   </div>
                   <button
@@ -322,9 +356,7 @@ export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
                       Detail Pertanyaan
                     </label>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <p className="text-gray-700 font-[Roboto]">
-                        {selectedQuestion.question}
-                      </p>
+                      <p className="text-gray-700 font-[Roboto]">{selectedQuestion.question}</p>
                     </div>
                   </div>
 
@@ -334,9 +366,7 @@ export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
                         Jawaban Anda
                       </label>
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <p className="text-gray-700 font-[Roboto]">
-                          {selectedQuestion.answer}
-                        </p>
+                        <p className="text-gray-700 font-[Roboto]">{selectedQuestion.answer}</p>
                       </div>
                     </div>
                   )}
@@ -395,10 +425,7 @@ export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
                   {questions.map((q) => (
                     <div
                       key={q.id}
-                      onClick={() => {
-                        setSelectedQuestion(q);
-                        setAnswer("");
-                      }}
+                      onClick={() => openQuestion(q)}
                       className={`p-3 rounded-lg cursor-pointer transition-colors ${
                         selectedQuestion.id === q.id
                           ? "bg-blue-100 border-2 border-blue-500"
@@ -406,9 +433,7 @@ export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
                       }`}
                     >
                       <div className="flex items-start justify-between mb-1">
-                        <p className="text-sm font-[Poppins] text-gray-800">
-                          {q.name}
-                        </p>
+                        <p className="text-sm font-[Poppins] text-gray-800">{q.name}</p>
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full font-[Roboto] ${
                             q.status === "pending"
@@ -419,12 +444,8 @@ export function AdminBeranda({ onNavigate }: AdminBerandaProps) {
                           {q.status === "pending" ? "Belum Dijawab" : "Sudah Dijawab"}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-600 font-[Roboto] truncate">
-                        {q.question}
-                      </p>
-                      <p className="text-xs text-gray-500 font-[Roboto] mt-1">
-                        {q.date}
-                      </p>
+                      <p className="text-xs text-gray-600 font-[Roboto] truncate">{q.question}</p>
+                      <p className="text-xs text-gray-500 font-[Roboto] mt-1">{q.date}</p>
                     </div>
                   ))}
                 </div>
